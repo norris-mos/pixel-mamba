@@ -37,7 +37,7 @@ source ~/.bashrc
 Create a new Conda environment with Python 3.9.
 
 ```bash
-mamba create -n myenv python=3.9
+conda create -n myenv python=3.9
 ```
 
 Activate the new environment.
