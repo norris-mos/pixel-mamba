@@ -1,6 +1,3 @@
-Certainly, here's a clear step-by-step markdown guide for setting up the environment on Eddie, including SSH access, Miniconda installation, and package dependencies:
-
-````markdown
 # Environment Setup Instructions for Eddie
 
 Follow these instructions to set up your environment on the Eddie cluster.
@@ -10,7 +7,6 @@ Follow these instructions to set up your environment on the Eddie cluster.
 ```bash
 ssh s2583684@eddie.ecdf.ed.ac.uk
 ```
-````
 
 ## Navigate to the Scratch Space
 
@@ -59,19 +55,37 @@ conda install -c conda-forge pycairo pygobject manimpango -y
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch-nightly -c nvidia -y
 pip install transformers==4.17.0
 pip install --upgrade pip
-# Uncomment the following lines if applicable
-# pip install /app/pixel/datasets
-# pip install -e /app/pixel
 pip install torch
 pip install -r /app/requirements.txt
 pip install --upgrade datasets
 ```
 
-Make sure to replace `/app/requirements.txt` with the actual path to your `requirements.txt` file, and uncomment and adjust the paths in the `pip install` commands according to where your `datasets` and `pixel` modules are located.
+cd into the main pixel directory and install the submodules
+
+```bash
+
+pip install ./datasets
+pip install -e .
+```
 
 After following these steps, your environment should be correctly set up to run your applications on Eddie.
 
 ```
 
 Ensure that you replace placeholders such as `s2583684` with your actual user information and adjust the paths according to your specific directory structure and requirements.
+```
+
+## Litmus test to check if everything has worked
+
+Request a GPU interactive session with
+
+```bash
+qlogin -q gpu -pe gpu-a100 2 -l h_vmem=500G -l h_rt=24:00:00
+```
+
+Remember to Activate your conda env (sometimes it will deactivate)
+navigate to the Edi-pixel directory and run the following
+
+```bash
+bash run_glue.sh
 ```
