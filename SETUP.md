@@ -50,6 +50,8 @@ conda activate myenv
 
 Install all the required dependencies within your `myenv`.
 
+- If you get memory error then request a CPU by using `qlogin -l h_vmem=4G`. you'll have to again move to scratch directory and activate the environment as well.
+
 ```bash
 conda install -c conda-forge pycairo pygobject manimpango -y
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch-nightly -c nvidia -y
