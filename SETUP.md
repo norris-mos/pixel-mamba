@@ -37,7 +37,7 @@ source ~/.bashrc
 Create a new Conda environment with Python 3.9.
 
 ```bash
-mamba create -n myenv python=3.9
+conda create -n myenv python=3.9 --silent
 ```
 
 Activate the new environment.
@@ -49,6 +49,8 @@ conda activate myenv
 ## Install Dependencies
 
 Install all the required dependencies within your `myenv`.
+
+- If you get memory error then request a CPU by using `qlogin -l h_vmem=4G`. you'll have to again move to scratch directory and activate the environment as well.
 
 ```bash
 conda install -c conda-forge pycairo pygobject manimpango -y
