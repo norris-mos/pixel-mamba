@@ -32,6 +32,8 @@ from pixel.models import PoolingForSequenceClassificationHead, PoolingMode
 from pixel.models import ViTModel
 from pixel.models import PIXELConfig
 
+from mamba_ssm import Mamba
+
 logger = logging.getLogger(__name__)
 
 
@@ -277,5 +279,37 @@ class PIXBAEmbeddings(nn.Module):
 ##########################################################################################################################################
 ##########################################################################################################################################
 ##########################################################################################################################################
+
+class PIXBABlock(nn.Module):
+
+    def __init__(self,config, d_state=16, d_conv=4, expand=2):
+        super(PIXBABlock,self).__init__()
+
+        self.d_model = config.d_model
+        self.mamba = Mamba(
+                self.d_model,
+                d_state=d_state,
+                d_conv=d_conv,
+                expand=expand,
+
+                )
+    
+    def forward(self,x):
+
+        y = self.mamba(x)
+
+        return y
+
+
+
+class PIXBAEncoder(nn.Module):
+    def __init__(self, num_blocks, d_model, d_state=16, d_conv=4, expand=2):
+        super(PIXBAEncoder, self).__init__()
+        self.layers = nn.ModuleList([PIXBABlock(d_model, d_state, d_conv, expand) for _ in range(num_blocks)])
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
 

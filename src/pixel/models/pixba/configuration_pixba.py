@@ -80,25 +80,24 @@ class PIXBAConfig(PretrainedConfig):
             The ratio of the number of masked tokens in the input sequence.
         norm_pix_loss (`bool`, *optional*, defaults to `True`):
             Whether or not to train with normalized pixels (see Table 3 in the paper).
-
-    Example:
-
-    ```python
-    >>> from pixel import PIXELModel, PIXELConfig
-
-    >>> # Initializing a PIXEL pixel-base style configuration
-    >>> configuration = PIXELConfig()
-
-    >>> # Initializing a model from the vit-mae-base style configuration
-    >>> model = PIXELModel(configuration)
-
-    >>> # Accessing the model configuration
-    >>> configuration = model.config
-    ```"""
+"""
     model_type = "pixel"
 
     def __init__(
         self,
+        #Mamba configs 
+#############################
+        d_model = 2560,
+        n_layer = 64,
+        vocab_size=50277,
+        ssm_cfg = field(default_factory=dict),
+        rms_norm=True,
+        residual_in_fp32=True,
+        fused_add_norm=True,
+        pad_vocab_size_multiple=8,
+######################################
+
+
         hidden_size=768,
         num_hidden_layers=12,
         num_attention_heads=12,
@@ -123,6 +122,16 @@ class PIXBAConfig(PretrainedConfig):
     ):
         super().__init__(**kwargs)
 
+####################################################   
+        self.d_model=d_model
+        self.n_layer=n_layer
+        self.vocab_size= vocab_size
+        self.ssm_cfg= ssm_cfg
+        self.rms_norm = rms_norm
+        self.residual_in_fp32 = residual_in_fp32
+        self.fused_add_norm=True
+        self.pad_vocab_size_multiple=8
+########################################################
         self.hidden_size = hidden_size
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
@@ -141,4 +150,4 @@ class PIXBAConfig(PretrainedConfig):
         self.decoder_num_hidden_layers = decoder_num_hidden_layers
         self.decoder_intermediate_size = decoder_intermediate_size
         self.mask_ratio = mask_ratio
-        self.norm_pix_loss = norm_pix_loss
+        self.norm_pix_loss = norm_pix_los
