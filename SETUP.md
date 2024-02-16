@@ -77,6 +77,21 @@ After following these steps, your environment should be correctly set up to run 
 Ensure that you replace placeholders such as `s2583684` with your actual user information and adjust the paths according to your specific directory structure and requirements.
 ```
 
+## Mamba installation
+
+When using the mamba package you need to have a GPU to use. Make sure to be on a GPU when installing the library. On Eddie this involves activating the toolkit using the following commands
+
+```bash
+module avail cuda
+module load cuda/12.1.1
+conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch
+git clone [causal1d lib]
+cd causal1d lib
+CAUSAL_CONV1D_FORCE_BUILD=TRUE pip install .
+
+
+```
+
 ## Litmus test to check if everything has worked
 
 Request a GPU interactive session with
@@ -91,3 +106,8 @@ navigate to the Edi-pixel directory and run the following
 ```bash
 bash run_glue.sh
 ```
+ __init__.py 
+de3b03(eddie) models]$ cd pi
+de3b03(eddie) pixba]$ ls
+n_pixba.py  __init__.py  mod
+
