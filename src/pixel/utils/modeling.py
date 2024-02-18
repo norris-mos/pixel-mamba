@@ -3,7 +3,7 @@ import math
 
 from transformers import ViTForImageClassification
 
-from ..models.pixel.modeling_pixel import PIXELForPreTraining
+from ..data.models.pixel.modeling_pixel import PIXELForPreTraining
 
 logger = logging.getLogger(__name__)
 
