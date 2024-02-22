@@ -96,6 +96,9 @@ class PIXBAConfig(PretrainedConfig):
         residual_in_fp32=True,
         fused_add_norm=True,
         pad_vocab_size_multiple=8,
+        d_state=16,
+        d_conv=4,
+        expand=2,
 ######################################
 
 
@@ -151,4 +154,7 @@ class PIXBAConfig(PretrainedConfig):
         self.decoder_num_hidden_layers = decoder_num_hidden_layers
         self.decoder_intermediate_size = decoder_intermediate_size
         self.mask_ratio = mask_ratio
-        self.norm_pix_loss = norm_pix_los
+        self.norm_pix_loss = norm_pix_loss
+        self.d_state = d_state
+        self.d_conv = d_conv
+        self.expand = expand

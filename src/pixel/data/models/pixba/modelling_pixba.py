@@ -31,7 +31,7 @@ from pixel.utils import DependencyParsingModelOutput, format_mask
 from biaffine import Biaffine
 from pooling import PoolingForSequenceClassificationHead, PoolingMode
 from vit import ViTModel
-from ..pixel.configuration_pixel import PIXELConfig
+#from ..pixel.configuration_pixel import PIXELConfig
 
 # from mamba_ssm import Mamba
 from pixba.ops.selective_scan_interface import selective_scan_fn, mamba_inner_fn
@@ -196,7 +196,7 @@ class PIXBAEmbeddings(nn.Module):
         # timm's trunc_normal_(std=.02) is effectively normal_(std=0.02) as cutoff is too big (2.)
         torch.nn.init.normal_(self.cls_token, std=self.config.initializer_range)
 
-    def random_masking(self, sequence, attention_mask):
+    def random_masking(self, sequence):
         """
         Perform per-sample random masking by per-sample shuffling. Per-sample shuffling is done by argsort random
         noise.
@@ -213,6 +213,7 @@ class PIXBAEmbeddings(nn.Module):
         # And bump up noise to 100 to guarantee that it gets masked
         # We therefore ensure that at least one masked patch has actual text
         # This is necessary because we only compute loss on patches having text, i.e. loss would otherwise be NaN
+        print(noise.shape)
         noise_mask = torch.argmax(noise * attention_mask, dim=1)
         noise[torch.arange(noise.size(0)), noise_mask] = 100.0
 
@@ -233,7 +234,7 @@ class PIXBAEmbeddings(nn.Module):
 
         return sequence_masked, attention_mask_masked, mask, ids_restore
 
-    def controlled_masking(self, sequence, attention_mask, patch_mask):
+    def controlled_masking(self, sequence, patch_mask):
 
         batch_size, seq_length, dim = sequence.shape
 
@@ -252,7 +253,7 @@ class PIXBAEmbeddings(nn.Module):
         # keep the first subset
         ids_keep = ids_shuffle[:, :len_keep]
         sequence_masked = torch.gather(sequence, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, dim))
-        attention_mask_masked = torch.gather(attention_mask, dim=1, index=ids_keep)
+        #attention_mask_masked = torch.gather(attention_mask, dim=1, index=ids_keep)
 
         # generate the binary mask: 0 is keep, 1 is remove
         mask = torch.ones([batch_size, seq_length], device=sequence.device)
@@ -260,7 +261,7 @@ class PIXBAEmbeddings(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
 
-        return sequence_masked, attention_mask_masked, mask, ids_restore
+        return sequence_masked, mask, ids_restore
 
     def forward(self, pixel_values, attention_mask=None, patch_mask=None):
         batch_size, num_channels, height, width = pixel_values.shape
@@ -273,11 +274,13 @@ class PIXBAEmbeddings(nn.Module):
 
         # masking: length -> length * config.mask_ratio
         if patch_mask is not None:
-            embeddings, attention_mask, mask, ids_restore = self.controlled_masking(
+            #embeddings, attention_mask, mask, ids_restore = self.controlled_masking(
+            embeddings, mask, ids_restore = self.controlled_masking(
                 embeddings, attention_mask, patch_mask
             )
         else:
-            embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
+            embeddings, mask, ids_restore = self.random_masking(embeddings, attention_mask)
+            #embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
 
         # append cls token
         cls_token = self.cls_token + self.position_embeddings[:, :1, :]
@@ -412,6 +415,7 @@ class PIXBABlock(nn.Module):
         hidden_states: (B, L, D)
         Returns: same shape as hidden_states
         """
+        print("executing forward")
         batch, seqlen, dim = hidden_states.shape
 
         conv_state, ssm_state = None, None
@@ -434,6 +438,7 @@ class PIXBABlock(nn.Module):
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
         if self.use_fast_path and inference_params is None:  # Doesn't support outputting the states
+            print("using fast path")
             out = mamba_inner_fn(
                 xz,
                 self.conv1d.weight,
@@ -477,6 +482,7 @@ class PIXBABlock(nn.Module):
             B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             assert self.activation in ["silu", "swish"]
+            print("executing selective_scan")
             y = selective_scan_fn(
                 x,
                 dt,
@@ -646,8 +652,12 @@ class PIXBABlockWrapper(nn.Module):
 
 
 class PIXBAEncoder(nn.Module):
-    def __init__(self, num_blocks, d_model, d_state=16, d_conv=4, expand=2):
+    def __init__(self, config, num_blocks):
         super(PIXBAEncoder, self).__init__()
+        d_model = config.d_model
+        d_state = config.d_state
+        d_conv = config.d_conv
+        expand = config.expand
         self.layers = nn.ModuleList([PIXBABlock(d_model, d_state, d_conv, expand) for _ in range(num_blocks)])
 
     def forward(self, x):
@@ -655,4 +665,34 @@ class PIXBAEncoder(nn.Module):
             x = layer(x)
         return x
 
+class PIXBAModel(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
 
+        self.embeddings = PIXBAEmbeddings(config)
+        self.encoder = PIXBAEncoder(config, 1)
+
+    def forward(
+        self,
+        pixel_values = None,
+        attention_mask = None,
+        head_mask = None,
+        patch_mask = None,
+        output_attentions = None,
+        output_hidden_states = None,
+        return_dict = None
+    ):
+        embedding_output, mask, ids_restore = self.embeddings(pixel_values, patch_mask)
+        encoder_outputs = self.encoder(
+            embedding_output,
+            output_hidden_states = output_hidden_states,
+            return_dict = return_dict,
+        )
+        sequence_output = encoder_outputs[0]
+        sequence_output = self.layernorm(sequence_output)
+
+        if not return_dict:
+            return (sequence_output, mask, ids_restore) + encoder_outputs[1:]
+        
+        return
