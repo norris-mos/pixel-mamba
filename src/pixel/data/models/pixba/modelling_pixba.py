@@ -26,11 +26,11 @@ from transformers.modeling_outputs import (
 )
 from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_linear_layer
 
-from pixel.utils import DependencyParsingModelOutput, format_mask
+# from pixel.utils import DependencyParsingModelOutput, format_mask
 
-from biaffine import Biaffine
-from pooling import PoolingForSequenceClassificationHead, PoolingMode
-from vit import ViTModel
+# from biaffine import Biaffine
+# from pooling import PoolingForSequenceClassificationHead, PoolingMode
+# from vit import ViTModel
 #from ..pixel.configuration_pixel import PIXELConfig
 
 # from mamba_ssm import Mamba
