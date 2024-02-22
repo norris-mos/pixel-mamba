@@ -23,11 +23,15 @@ import datasets
 import torch
 import transformers
 from datasets import interleave_datasets, load_dataset
-from pixel import (
-    PIXELConfig,
-    PIXELEmbeddings,
-    PIXELForPreTraining,
-    PIXELTrainerForPretraining,
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models')))
+print(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models/pixba')))
+
+from pixba import (
+    PIXBAConfig,
+    PIXBAEmbeddings,
+    PIXBAForPreTraining,
+    PIXBATrainerForPretraining,
     SpanMaskingGenerator,
     PyGameTextRenderer,
     get_attention_mask,
@@ -523,5 +527,3 @@ def _mp_fn(index):
     main()
 
 
-if __name__ == "__main__":
-    main()
