@@ -1,6 +1,6 @@
 {
     "train_dataset_names": "Team-PIXEL/rendered-wikipedia-english",
-    "validation_dataset_name": "plip/wiki_dev",
+    "validation_dataset_name": "Team-PIXEL/rendered-wikipedia-english",
     "dataset_cache": "data/rendered-wikipedia-en",
     "train_splits": "train",
     "validation_split": "en",
@@ -23,7 +23,7 @@
     "save_steps": 1,
     "seed": 42,
     "use_auth_token": "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",
-    "remove_un]used_columns": false,
+    "remove_unused_columns": false,
     "fp16": true,
     "half_precision_backend": "apex",
     "streaming": true,
@@ -32,5 +32,8 @@
     "hub_model_id": "Team-PIXEL/pixel-base",
     "hub_strategy": "checkpoint",
     "hub_token": "<redacted_token_with_write_access>",
-    "hub_private_repo": true
+    "hub_private_repo": true,
+    "text_renderer_name_or_path": "configs/renderers/noto_renderer",
+    "output_dir": "outputs/",
+    "dataset_caches": "/exports/eddie/scratch/s2581395/pixel-mamba/cache"
 }

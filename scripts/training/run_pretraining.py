@@ -25,19 +25,21 @@ import transformers
 from datasets import interleave_datasets, load_dataset
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel')))
 print(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models/pixba')))
-
 from pixba import (
     PIXBAConfig,
     PIXBAEmbeddings,
     PIXBAForPreTraining,
-    PIXBATrainerForPretraining,
-    SpanMaskingGenerator,
-    PyGameTextRenderer,
-    get_attention_mask,
-    get_transforms,
+    PIXBATrainerForPretraining
+)
+from utils.masking import SpanMaskingGenerator
+from data.rendering import PyGameTextRenderer
+from utils.misc import (get_attention_mask,    
     get_2d_sincos_pos_embed
 )
+from utils.transforms import get_transforms
+
 from transformers import HfArgumentParser, TrainingArguments, ViTFeatureExtractor
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
@@ -230,7 +232,7 @@ def main(config_dict: Dict[str, Any] = None):
             model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     else:
         model_args, data_args, training_args = parser.parse_dict(config_dict)
-
+    print("Initializing loggger")
     # Setup logging
     log_level = logging.INFO
     logging.basicConfig(
@@ -306,7 +308,8 @@ def main(config_dict: Dict[str, Any] = None):
         )
 
     validation_dataset = load_dataset(
-        data_args.validation_dataset_name, split=data_args.validation_split, use_auth_token=model_args.use_auth_token
+        data_args.validation_dataset_name, split=data_args.validation_split, use_auth_token=model_args.use_auth_token,
+        cache_dir=data_args.dataset_caches
     )
 
     config_kwargs = {
@@ -526,4 +529,4 @@ def _mp_fn(index):
     # For xla_spawn (TPUs)
     main()
 
-
+main()
