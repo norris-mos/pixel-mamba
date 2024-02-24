@@ -697,7 +697,7 @@ class PIXBAModel(nn.Module):
         
         return
     
-class PIXBAForPreTraining(PIXELPreTrainedModel):
+class PIXBAForPreTraining(nn.Module):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
