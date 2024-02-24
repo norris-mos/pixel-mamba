@@ -13,8 +13,12 @@ from einops import rearrange, repeat
 import numpy as np
 import torch
 import wandb
+
+from utils.misc import get_2d_sincos_pos_embed
+
 from torch import Tensor, nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
+
 from transformers import ViTForImageClassification, PreTrainedModel
 from transformers.activations import ACT2FN
 from transformers.file_utils import ModelOutput
@@ -72,30 +76,7 @@ def to_2tuple(x):
     return x, x
 
 
-def get_2d_sincos_pos_embed(embed_dim, grid_size, add_cls_token=False):
-    """
-    Create 2D sin/cos positional embeddings.
-    Args:
-        embed_dim (`int`):
-            Embedding dimension.
-        grid_size (`int`):
-            The grid height and width.
-        add_cls_token (`bool`, *optional*, defaults to `False`):
-            Whether or not to add a classification (CLS) token.
-    Returns:
-        (`torch.FloatTensor` of shape (grid_size*grid_size, embed_dim) or (1+grid_size*grid_size, embed_dim): the
-        position embeddings (with or without classification token)
-    """
-    grid_h = np.arange(grid_size, dtype=np.float32)
-    grid_w = np.arange(grid_size, dtype=np.float32)
-    grid = np.meshgrid(grid_w, grid_h)  # here w goes first
-    grid = np.stack(grid, axis=0)
 
-    grid = grid.reshape([2, 1, grid_size, grid_size])
-    pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
-    if add_cls_token:
-        pos_embed = np.concatenate([np.zeros([1, embed_dim]), pos_embed], axis=0)
-    return pos_embed
 
 
 def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):

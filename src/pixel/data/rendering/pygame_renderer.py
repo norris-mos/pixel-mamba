@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple, Union
 import cv2
 import numpy as np
 
-from ...utils.defaults import *
+from utils.defaults import *
 from .rendering_utils import TextRenderingMixin, Encoding
 
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
