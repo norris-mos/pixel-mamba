@@ -317,21 +317,21 @@ def main(config_dict: Dict[str, Any] = None):
     logger.info(f"Using dropout with probability {model_args.dropout_prob}")
 
     if model_args.config_name:
-        config = PIXELConfig.from_pretrained(
+        config = PIXBAConfig.from_pretrained(
             model_args.config_name,
             attention_probs_dropout_prob=model_args.dropout_prob,
             hidden_dropout_prob=model_args.dropout_prob,
             **config_kwargs,
         )
     elif model_args.model_name_or_path:
-        config = PIXELConfig.from_pretrained(
+        config = PIXBAConfig.from_pretrained(
             model_args.model_name_or_path,
             attention_probs_dropout_prob=model_args.dropout_prob,
             hidden_dropout_prob=model_args.dropout_prob,
             **config_kwargs,
         )
     else:
-        config = PIXELConfig(
+        config = PIXBAConfig(
             attention_probs_dropout_prob=model_args.dropout_prob,
             hidden_dropout_prob=model_args.dropout_prob,
             **config_kwargs,
@@ -347,13 +347,13 @@ def main(config_dict: Dict[str, Any] = None):
         {
             "mask_ratio": model_args.mask_ratio,
             "norm_pix_loss": model_args.norm_pix_loss,
-            "architectures": [PIXELForPreTraining.__name__]
+            "architectures": [PIXBAForPreTraining.__name__]
         }
     )
 
     # Create model
     if model_args.model_name_or_path:
-        model = PIXELForPreTraining.from_pretrained(
+        model = PIXBAForPreTraining.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -361,7 +361,7 @@ def main(config_dict: Dict[str, Any] = None):
         )
     else:
         logger.info("Training new model from scratch")
-        model = PIXELForPreTraining(config)
+        model = PIXBAForPreTraining(config)
 
     # Load text renderer
     text_renderer = PyGameTextRenderer.from_pretrained(model_args.text_renderer_name_or_path, **config_kwargs)
@@ -382,7 +382,7 @@ def main(config_dict: Dict[str, Any] = None):
     feature_extractor.size = (image_height, image_width)
 
     # Reinitialize embeddings
-    model.vit.embeddings = PIXELEmbeddings(model.config)
+    model.vit.embeddings = PIXBAEmbeddings(model.config)
     model.decoder.decoder_pos_embed = torch.nn.Parameter(
         torch.zeros((1, text_renderer.max_seq_length + 1, 512)), requires_grad=False
     )
@@ -480,7 +480,7 @@ def main(config_dict: Dict[str, Any] = None):
         training_args.learning_rate = training_args.base_learning_rate * total_train_batch_size / 256
 
     # Initialize our trainer
-    trainer = PIXELTrainerForPretraining(
+    trainer = PIXBATrainerForPretraining(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

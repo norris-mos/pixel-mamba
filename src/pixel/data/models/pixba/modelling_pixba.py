@@ -696,3 +696,123 @@ class PIXBAModel(nn.Module):
             return (sequence_output, mask, ids_restore) + encoder_outputs[1:]
         
         return
+    
+class PIXBAForPreTraining(PIXELPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.config = config
+
+        self.vit = PIXBAModel(config)
+        self.decoder = PIXBADecoder(config, num_patches=self.vit.embeddings.num_patches, dtype=self.vit.dtype)
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def get_input_embeddings(self):
+        return self.vit.embeddings.patch_embeddings
+
+    def patchify(self, imgs):
+        """
+        imgs: (N, 3, H, W) x: (N, L, patch_size**2 *3)
+        """
+        p = self.vit.embeddings.patch_embeddings.patch_size[0]
+        assert imgs.shape[2] % p == 0 and imgs.shape[3] % p == 0
+
+        h = imgs.shape[2] // p
+        w = imgs.shape[3] // p
+        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
+        x = torch.einsum("nchpwq->nhwpqc", x)
+        x = x.reshape(shape=(imgs.shape[0], h * w, p ** 2 * 3))
+
+        return x
+
+    def unpatchify(self, x):
+        """
+        x: (N, L, patch_size**2 *3) imgs: (N, 3, H, W)
+        """
+        p = self.vit.embeddings.patch_embeddings.patch_size[0]
+        h = w = int(x.shape[1] ** 0.5)
+        assert h * w == x.shape[1]
+
+        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
+        x = torch.einsum("nhwpqc->nchpwq", x)
+        imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
+        return imgs
+
+    def forward_loss(self, imgs, pred, mask):
+        """
+        imgs: [N, 3, H, W] pred: [N, L, p*p*3] mask: [N, L], 0 is keep, 1 is remove,
+        """
+        target = self.patchify(imgs)
+        if self.config.norm_pix_loss:
+            mean = target.mean(dim=-1, keepdim=True)
+            var = target.var(dim=-1, keepdim=True)
+            target = (target - mean) / (var + 1.0e-6) ** 0.5
+
+        loss = (pred - target) ** 2
+        loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
+
+        loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
+        return loss
+
+    def forward(
+        self,
+        pixel_values=None,
+        # attention_mask=None,
+        head_mask=None,
+        patch_mask=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.vit(
+            pixel_values,
+            # attention_mask=attention_mask,
+            head_mask=head_mask,
+            patch_mask=patch_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        latent = outputs.last_hidden_state
+        ids_restore = outputs.ids_restore
+        mask = outputs.mask
+
+        decoder_outputs = self.decoder(latent, ids_restore)#, attention_mask)  # [N, L, p*p*3]
+        logits = decoder_outputs.logits
+
+        merged_mask = torch.bitwise_and(mask == 1, attention_mask == 1).long()
+        loss = self.forward_loss(pixel_values, logits, merged_mask)
+
+        if not return_dict:
+            output = (logits, mask, ids_restore) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
+
+        return PIXELForPreTrainingOutput(
+            loss=loss,
+            logits=logits,
+            mask=mask,
+            attention_mask=attention_mask,
+            ids_restore=ids_restore,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
+    
+class PIXBADecoder(nn.Module):
+    def __init__(self, config, num_patches, dtype):
+        super().__init__()
+
+    def forward(
+        self,
+        hidden_states,
+        ids_restore,
+        attention_mask,
+        output_attentions=False,
+        output_hidden_states=False,
+        return_dict=True,
+    ):
+        return []
+
