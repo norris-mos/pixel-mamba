@@ -309,7 +309,7 @@ def main(config_dict: Dict[str, Any] = None):
 
     validation_dataset = load_dataset(
         data_args.validation_dataset_name, split=data_args.validation_split, use_auth_token=model_args.use_auth_token,
-        cache_dir=data_args.dataset_caches
+        cache_dir=data_args.dataset_caches[0]
     )
 
     config_kwargs = {
