@@ -832,7 +832,7 @@ class PIXBAForPreTraining(nn.Module):
         self.config = config
 
         self.vit = PIXBAModel(config)
-        self.decoder = PIXBADecoder(config, num_patches=self.vit.embeddings.num_patches)
+        self.decoder = PIXBADecoder(config)#, num_patches=self.vit.embeddings.num_patches)
 
         # Initialize weights and apply final processing
         # self.post_init()
