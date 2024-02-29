@@ -145,3 +145,36 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size, add_cls_token=False):
     if add_cls_token:
         pos_embed = np.concatenate([np.zeros([1, embed_dim]), pos_embed], axis=0)
     return pos_embed
+
+def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
+    if embed_dim % 2 != 0:
+        raise ValueError("embed_dim must be even")
+
+    # use half of dimensions to encode grid_h
+    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
+
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
+    return emb
+
+
+def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
+    """
+    embed_dim: output dimension for each position pos: a list of positions to be encoded: size (M,) out: (M, D)
+    """
+    if embed_dim % 2 != 0:
+        raise ValueError("embed_dim must be even")
+
+    omega = np.arange(embed_dim // 2, dtype=np.float64)
+    omega /= embed_dim / 2.0
+    omega = 1.0 / 10000**omega  # (D/2,)
+
+    pos = pos.reshape(-1)  # (M,)
+    out = np.einsum("m,d->md", pos, omega)  # (M, D/2), outer product
+
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
+
+    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
+    return emb
+
