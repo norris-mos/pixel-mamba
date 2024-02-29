@@ -3,8 +3,8 @@ import math
 
 from transformers import ViTForImageClassification
 
-from ..models.pixel.modeling_pixel import PIXELForPreTraining
-
+# from ..data.models.pixel.modeling_pixel import PIXELForPreTraining
+# from pixba.modelling_pixba import PIXBAForPreTraining
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +49,7 @@ def resize_model_embeddings(model: ViTForImageClassification, max_seq_length: in
         model.vit.embeddings.patch_embeddings.image_size = [new_height, new_width]
 
 
-def truncate_decoder_pos_embeddings(model: PIXELForPreTraining, max_seq_length: int) -> None:
+def truncate_decoder_pos_embeddings(model, max_seq_length: int) -> None:
     """
     Truncates the position embeddings in a PIXEL Decoder
 

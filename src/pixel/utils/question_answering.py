@@ -27,7 +27,7 @@ from typing import Optional, Tuple
 import numpy as np
 from tqdm.auto import tqdm
 
-from ..data.rendering import PangoCairoTextRenderer
+from data.rendering import PangoCairoTextRenderer
 from .training import Modality
 
 logger = logging.getLogger(__name__)

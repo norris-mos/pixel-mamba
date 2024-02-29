@@ -10,7 +10,7 @@ from filelock import FileLock
 from PIL import Image
 from transformers import PreTrainedTokenizerFast, is_torch_available
 
-from ...utils import Modality, Split, get_attention_mask
+from utils import Modality, Split, get_attention_mask
 from ..rendering import PyGameTextRenderer, PangoCairoTextRenderer
 
 logger = logging.getLogger(__name__)
