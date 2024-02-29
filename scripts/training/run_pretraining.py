@@ -26,7 +26,7 @@ from datasets import interleave_datasets, load_dataset
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel')))
-print(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models/pixba')))
+#print(os.path.abspath(os.path.join(os.path.dirname(sys.path[0]), '../src/pixel/data/models/pixba')))
 from pixba import (
     PIXBAConfig,
     PIXBAEmbeddings,
