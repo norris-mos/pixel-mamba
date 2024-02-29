@@ -3,7 +3,7 @@
     "validation_dataset_name": "Team-PIXEL/rendered-wikipedia-english",
     "dataset_cache": "data/rendered-wikipedia-en",
     "train_splits": "train",
-    "validation_split": "en",
+    "validation_split": "train",
     "label_names": "pixel_values",
     "do_train": true,
     "do_eval": false,
