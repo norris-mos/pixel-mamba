@@ -800,7 +800,7 @@ class PIXBAModel(nn.Module):
         self.config = config
 
         self.embeddings = PIXBAEmbeddings(config)
-        self.encoder = PIXBAEncoder(config, 1)
+        self.encoder = PIXBAEncoder(config)
 
     def forward(
         self,
@@ -929,19 +929,3 @@ class PIXBAForPreTraining(nn.Module):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
-    
-class PIXBADecoder(nn.Module):
-    def __init__(self, config, num_patches):
-        super().__init__()
-
-    def forward(
-        self,
-        hidden_states,
-        ids_restore,
-        attention_mask,
-        output_attentions=False,
-        output_hidden_states=False,
-        return_dict=True,
-    ):
-        return []
-
