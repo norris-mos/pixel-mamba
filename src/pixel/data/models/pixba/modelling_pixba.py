@@ -680,14 +680,14 @@ class PIXBAModel(nn.Module):
     
 class PIXBAForPreTraining(nn.Module):
     def __init__(self, config):
-        super().__init__(config)
+        super().__init__()
         self.config = config
 
         self.vit = PIXBAModel(config)
-        self.decoder = PIXBADecoder(config, num_patches=self.vit.embeddings.num_patches, dtype=self.vit.dtype)
+        self.decoder = PIXBADecoder(config, num_patches=self.vit.embeddings.num_patches)
 
         # Initialize weights and apply final processing
-        self.post_init()
+        # self.post_init()
 
     def get_input_embeddings(self):
         return self.vit.embeddings.patch_embeddings
@@ -783,7 +783,7 @@ class PIXBAForPreTraining(nn.Module):
         )
     
 class PIXBADecoder(nn.Module):
-    def __init__(self, config, num_patches, dtype):
+    def __init__(self, config, num_patches):
         super().__init__()
 
     def forward(
