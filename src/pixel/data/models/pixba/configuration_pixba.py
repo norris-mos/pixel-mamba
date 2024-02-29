@@ -89,9 +89,9 @@ class PIXBAConfig(PretrainedConfig):
         #Mamba configs 
 #############################
         d_model = 2560,
-        n_layer = 64,
+        num_layers = 64,
         vocab_size=50277,
-        ssm_cfg = field(default_factory=dict),
+        ssm_cfg = {},#field(default_factory=dict),
         rms_norm=True,
         residual_in_fp32=True,
         fused_add_norm=True,
@@ -99,8 +99,16 @@ class PIXBAConfig(PretrainedConfig):
         d_state=16,
         d_conv=4,
         expand=2,
+        dt_rank="auto",
+        dt_min=0.001,
+        dt_max=0.1,
+        dt_init="random",
+        dt_scale=1.0,
+        dt_init_floor=1e-4,
+        conv_bias=True,
+        bias=False,
+        use_fast_path=True,
 ######################################
-
 
         hidden_size=768,
         num_hidden_layers=12,
@@ -128,7 +136,7 @@ class PIXBAConfig(PretrainedConfig):
 
 ####################################################   
         self.d_model=d_model
-        self.n_layer=n_layer
+        self.num_layers=num_layers
         self.vocab_size= vocab_size
         self.ssm_cfg= ssm_cfg
         self.rms_norm = rms_norm
@@ -158,3 +166,15 @@ class PIXBAConfig(PretrainedConfig):
         self.d_state = d_state
         self.d_conv = d_conv
         self.expand = expand
+#########   Mamba Parameters  ###########
+        self.dt_rank = dt_rank
+        self.dt_min = dt_min
+        self.dt_max = dt_max
+        self.dt_init = dt_init
+        self.dt_scale = dt_scale
+        self.dt_init_floor = dt_init_floor
+        self.conv_bias = conv_bias
+        self.bias = bias
+        self.use_fast_path = use_fast_path
+        self.device = None
+        self.dtype = None
