@@ -195,8 +195,10 @@ class PIXBAEmbeddings(nn.Module):
         # We therefore ensure that at least one masked patch has actual text
         # This is necessary because we only compute loss on patches having text, i.e. loss would otherwise be NaN
         print(noise.shape)
-        noise_mask = torch.argmax(noise * attention_mask, dim=1)
-        noise[torch.arange(noise.size(0)), noise_mask] = 100.0
+        
+        # Harsh - since we are not using masking I don't think we need to increase the noise.
+        # noise_mask = torch.argmax(noise * attention_mask, dim=1)
+        # noise[torch.arange(noise.size(0)), noise_mask] = 100.0
 
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
@@ -205,7 +207,7 @@ class PIXBAEmbeddings(nn.Module):
         # keep the first subset
         ids_keep = ids_shuffle[:, :len_keep]
         sequence_masked = torch.gather(sequence, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, dim))
-        attention_mask_masked = torch.gather(attention_mask, dim=1, index=ids_keep)
+        # attention_mask_masked = torch.gather(attention_mask, dim=1, index=ids_keep)
 
         # generate the binary mask: 0 is keep, 1 is remove
         mask = torch.ones([batch_size, seq_length], device=sequence.device)
@@ -213,7 +215,8 @@ class PIXBAEmbeddings(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
 
-        return sequence_masked, attention_mask_masked, mask, ids_restore
+        # return sequence_masked, attention_mask_masked, mask, ids_restore
+        return sequence_masked, mask, ids_restore
 
     def controlled_masking(self, sequence, patch_mask):
 
@@ -244,7 +247,12 @@ class PIXBAEmbeddings(nn.Module):
 
         return sequence_masked, mask, ids_restore
 
-    def forward(self, pixel_values, attention_mask=None, patch_mask=None):
+    def forward(
+            self,
+            pixel_values,
+            # attention_mask=None,
+            patch_mask=None
+            ):
         batch_size, num_channels, height, width = pixel_values.shape
         print(f'pixel dimensions before embedding:{pixel_values.shape}')
         embeddings = self.patch_embeddings(pixel_values)
@@ -257,19 +265,22 @@ class PIXBAEmbeddings(nn.Module):
         if patch_mask is not None:
             #embeddings, attention_mask, mask, ids_restore = self.controlled_masking(
             embeddings, mask, ids_restore = self.controlled_masking(
-                embeddings, attention_mask, patch_mask
+                embeddings,
+                # attention_mask,
+                patch_mask
             )
         else:
-            embeddings, mask, ids_restore = self.random_masking(embeddings, attention_mask)
+            embeddings, mask, ids_restore = self.random_masking(embeddings) #, attention_mask)
             #embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
 
         # append cls token
         cls_token = self.cls_token + self.position_embeddings[:, :1, :]
         cls_tokens = cls_token.expand(embeddings.shape[0], -1, -1)
         embeddings = torch.cat((cls_tokens, embeddings), dim=1)
-        attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
+        #attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
 
-        return embeddings, attention_mask, mask, ids_restore
+        #return embeddings, attention_mask, mask, ids_restore
+        return embeddings, mask, ids_restore
 
 
 # MAMBA BLOCK
@@ -805,7 +816,7 @@ class PIXBAModel(nn.Module):
     def forward(
         self,
         pixel_values = None,
-        attention_mask = None,
+        # attention_mask = None,
         head_mask = None,
         patch_mask = None,
         output_attentions = None,
@@ -913,8 +924,9 @@ class PIXBAForPreTraining(nn.Module):
         decoder_outputs = self.decoder(latent, ids_restore)#, attention_mask)  # [N, L, p*p*3]
         logits = decoder_outputs.logits
 
-        merged_mask = torch.bitwise_and(mask == 1, attention_mask == 1).long()
-        loss = self.forward_loss(pixel_values, logits, merged_mask)
+        #merged_mask = torch.bitwise_and(mask == 1, attention_mask == 1).long()
+        #loss = self.forward_loss(pixel_values, logits, merged_mask)
+        loss = self.forward_loss(pixel_values, logits, mask)
 
         if not return_dict:
             output = (logits, mask, ids_restore) + outputs[2:]
@@ -924,7 +936,7 @@ class PIXBAForPreTraining(nn.Module):
             loss=loss,
             logits=logits,
             mask=mask,
-            attention_mask=attention_mask,
+            #attention_mask=attention_mask,
             ids_restore=ids_restore,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,

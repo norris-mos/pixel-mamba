@@ -212,8 +212,8 @@ class CustomTrainingArguments(TrainingArguments):
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
-    attention_mask = torch.stack([example["attention_mask"] for example in examples])
-    inputs = {"pixel_values": pixel_values, "attention_mask": attention_mask}
+    #attention_mask = torch.stack([example["attention_mask"] for example in examples])
+    inputs = {"pixel_values": pixel_values}#, "attention_mask": attention_mask}
     if "patch_mask" in examples[0]:
         patch_mask = torch.stack([example["patch_mask"] for example in examples])
         inputs.update({"patch_mask": patch_mask})
@@ -446,7 +446,7 @@ def main(config_dict: Dict[str, Any] = None):
         """Preprocess a batch of images by applying transforms."""
 
         examples["pixel_values"] = [transforms(image) for image in examples[image_column_name]]
-        examples["attention_mask"] = [get_attention_mask(num_patches) for num_patches in examples["num_patches"]]
+        # examples["attention_mask"] = [get_attention_mask(num_patches) for num_patches in examples["num_patches"]]
         if model_args.span_masking:
             examples["patch_mask"] = [
                 torch.tensor(patch_mask_generator(num_patches + 1), dtype=torch.float32)
