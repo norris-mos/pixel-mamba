@@ -819,15 +819,15 @@ class PIXBAModel(nn.Module):
         # attention_mask = None,
         head_mask = None,
         patch_mask = None,
-        output_attentions = None,
-        output_hidden_states = None,
+        #output_attentions = None,
+        #output_hidden_states = None,
         return_dict = None
     ):
         embedding_output, mask, ids_restore = self.embeddings(pixel_values, patch_mask)
         encoder_outputs = self.encoder(
             embedding_output,
-            output_hidden_states = output_hidden_states,
-            return_dict = return_dict,
+            #output_hidden_states = output_hidden_states,
+            #return_dict = return_dict,
         )
         sequence_output = encoder_outputs[0]
         sequence_output = self.layernorm(sequence_output)
@@ -912,8 +912,8 @@ class PIXBAForPreTraining(nn.Module):
             # attention_mask=attention_mask,
             head_mask=head_mask,
             patch_mask=patch_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
+            #output_attentions=output_attentions,
+            #output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
 
