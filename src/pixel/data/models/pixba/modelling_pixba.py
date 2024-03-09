@@ -474,7 +474,7 @@ class PIXBABlock(nn.Module):
             B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             assert self.activation in ["silu", "swish"]
-            print("executing selective_scan")
+            #print("executing selective_scan")
             y = selective_scan_fn(
                 x,
                 dt,
@@ -669,7 +669,7 @@ class PIXBAEncoder(nn.Module):
         self.norm = nn.LayerNorm(config.d_model)
 
     def forward(self, src, inference_params=None):
-        for layer in self.layers:
+        for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
             src = layer(src, inference_params=inference_params)
         src = self.norm(src)
         return src
@@ -835,8 +835,77 @@ class PIXBAModel(nn.Module):
         if not return_dict:
             return (sequence_output, mask, ids_restore) + encoder_outputs[1:]
         
-        return
+        return PIXBAModelOutput(
+            last_hidden_state=sequence_output,
+            mask=mask,
+            ids_restore=ids_restore,
+        )
     
+@dataclass
+class PIXBAForPreTrainingOutput(ModelOutput):
+    """
+    Class for PIXELForPreTraining's outputs, with potential hidden states and attentions.
+
+    Args:
+        loss (`torch.FloatTensor` of shape `(1,)`):
+            Pixel reconstruction loss.
+        logits (`torch.FloatTensor` of shape `(batch_size, patch_size ** 2 * num_channels)`):
+            Pixel reconstruction logits.
+        mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`):
+            Tensor indicating which patches are masked (1) and which are not (0).
+        attention_mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`):
+            Tensor indicating which patches are attended to and which are not.
+        ids_restore (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+            Tensor containing the original index of the (shuffled) masked patches.
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed
+            or when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each layer) of
+            shape `(batch_size, sequence_length, hidden_size)`. Hidden-states of the model at the output of each layer
+            plus the initial embedding outputs.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed
+            or when `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+            sequence_length)`. Attentions weights after the attention softmax, used to compute the weighted average in
+            the self-attention heads.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    logits: torch.FloatTensor = None
+    mask: torch.LongTensor = None
+    # attention_mask: torch.LongTensor = None
+    ids_restore: torch.LongTensor = None
+    # hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    #attentions: Optional[Tuple[torch.FloatTensor]] = None
+
+@dataclass
+class PIXBAModelOutput(ModelOutput):
+    """
+    Class for PIXELModel's outputs, with potential hidden states and attentions.
+
+    Args:
+        last_hidden_state (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`):
+            Sequence of hidden-states at the output of the last layer of the model.
+        mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`):
+            Tensor indicating which patches are masked (1) and which are not (0).
+        ids_restore (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+            Tensor containing the original index of the (shuffled) masked patches.
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or
+                        when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each layer) of
+            shape `(batch_size, sequence_length, hidden_size)`. Hidden-states of the model at the output of each layer
+            plus the initial embedding outputs.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when
+                    `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+            sequence_length)`. Attentions weights after the attention softmax, used to compute the weighted average in
+            the self-attention heads.
+    """
+
+    last_hidden_state: torch.FloatTensor = None
+    mask: torch.LongTensor = None
+    ids_restore: torch.LongTensor = None
+    #attentions: Optional[Tuple[torch.FloatTensor]] = None
+
 class PIXBAForPreTraining(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -932,12 +1001,12 @@ class PIXBAForPreTraining(nn.Module):
             output = (logits, mask, ids_restore) + outputs[2:]
             return ((loss,) + output) if loss is not None else output
 
-        return PIXELForPreTrainingOutput(
+        return PIXBAForPreTrainingOutput(
             loss=loss,
             logits=logits,
             mask=mask,
             #attention_mask=attention_mask,
             ids_restore=ids_restore,
             hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            #attentions=outputs.attentions,
         )
