@@ -88,7 +88,7 @@ class PIXBAConfig(PretrainedConfig):
         self,
         #Mamba configs 
 #############################
-        d_model = 2560,
+        d_model = 768,
         num_layers = 64,
         vocab_size=50277,
         ssm_cfg = {},#field(default_factory=dict),

@@ -407,7 +407,7 @@ class PIXBABlock(nn.Module):
         hidden_states: (B, L, D)
         Returns: same shape as hidden_states
         """
-        print("executing forward")
+        #print("executing forward")
         batch, seqlen, dim = hidden_states.shape
 
         conv_state, ssm_state = None, None
@@ -430,7 +430,7 @@ class PIXBABlock(nn.Module):
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
         if self.use_fast_path and inference_params is None:  # Doesn't support outputting the states
-            print("using fast path")
+            #print("using fast path")
             out = mamba_inner_fn(
                 xz,
                 self.conv1d.weight,
@@ -668,7 +668,7 @@ class PIXBAEncoder(nn.Module):
         ])
         self.norm = nn.LayerNorm(config.d_model)
 
-    def forward(self, src, pos, inference_params=None):
+    def forward(self, src, inference_params=None):
         for layer in self.layers:
             src = layer(src, inference_params=inference_params)
         src = self.norm(src)
@@ -830,7 +830,7 @@ class PIXBAModel(nn.Module):
             #return_dict = return_dict,
         )
         sequence_output = encoder_outputs[0]
-        sequence_output = self.layernorm(sequence_output)
+        #sequence_output = self.layernorm(sequence_output)
 
         if not return_dict:
             return (sequence_output, mask, ids_restore) + encoder_outputs[1:]
