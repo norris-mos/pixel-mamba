@@ -672,6 +672,7 @@ class PIXBAEncoder(nn.Module):
     def forward(self, src, inference_params=None):
         # src should be embeddings_output: (B, 529, 768)
         print("Input to encoder - ",src.shape)
+        src = src.to(torch.float16)
         for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
             src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 397, 768)
         src = self.norm(src)
@@ -744,6 +745,7 @@ class PIXBADecoder(nn.Module):
 
         src = hidden_states
         print("Input to decoder - ", src.shape)
+        src = src.to(torch.float16)
         for layer in self.layers:
             src = layer(src, inference_params=inference_params)
         src = self.norm(src)
