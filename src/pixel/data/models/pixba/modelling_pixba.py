@@ -1055,7 +1055,7 @@ class PIXBAForPreTraining(nn.Module):
             mask=mask,
             #attention_mask=attention_mask,
             ids_restore=ids_restore,
-            hidden_states=outputs.hidden_states,
+            #hidden_states=outputs.hidden_states,
             #attentions=outputs.attentions,
         )
 
