@@ -749,6 +749,10 @@ class PIXBADecoder(nn.Module):
         src = self.norm(src)
         #src = self.head(src[:, -return_token_num:])
         src = self.head(src)
+
+        # remove cls token
+        src = src[:, 1:, :]
+
         print("Out of decoder - ", src.shape)
         return src
 
