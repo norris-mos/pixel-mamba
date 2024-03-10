@@ -109,7 +109,7 @@ class PIXBAConfig(PretrainedConfig):
         bias=False,
         use_fast_path=True,
 ######################################
-
+        num_patches=529,
         hidden_size=768,
         num_hidden_layers=12,
         num_attention_heads=12,
@@ -178,3 +178,6 @@ class PIXBAConfig(PretrainedConfig):
         self.use_fast_path = use_fast_path
         self.device = None
         self.dtype = None
+
+#########   Temp Parameters  ###########
+        self.num_patches = num_patches

@@ -681,6 +681,14 @@ class PIXBAEncoder(nn.Module):
 class PIXBADecoder(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
+        self.decoder_embed = nn.Linear(config.hidden_size, config.d_model, bias=True)
+        self.mask_token = nn.Parameter(torch.zeros(1, 1, config.d_model))
+
+        self.decoder_pos_embed = nn.Parameter(
+            torch.zeros(1, config.num_patches + 1, config.d_model), requires_grad=False
+        )  # fixed sin-cos embedding
+
         self.layers = nn.ModuleList([
             PIXBABlock(
                 d_model=config.d_model,
@@ -704,8 +712,36 @@ class PIXBADecoder(nn.Module):
         ])
         self.norm = nn.LayerNorm(config.d_model)
         self.head = nn.Identity()
+        self.initialize_weights(config.num_patches)
 
-    def forward(self, src, return_token_num, inference_params=None):
+    def initialize_weights(self, num_patches):
+        # initialize (and freeze) position embeddings by sin-cos embedding
+        decoder_pos_embed = get_2d_sincos_pos_embed(
+            self.decoder_pos_embed.shape[-1], int(num_patches ** 0.5), add_cls_token=True
+        )
+        x = torch.from_numpy(decoder_pos_embed).float().unsqueeze(0)
+        print('unsqueezing output of sin/cos - ', x.shape)
+        self.decoder_pos_embed.data.copy_(x)
+        print("decoder position embedding - ", self.decoder_pos_embed.shape)
+
+        # timm's trunc_normal_(std=.02) is effectively normal_(std=0.02) as cutoff is too big (2.)
+        torch.nn.init.normal_(self.mask_token, std=self.config.initializer_range)
+
+    def forward(self, encoder_output, ids_restore, return_token_num=0, inference_params=None):
+        x = self.decoder_embed(encoder_output)
+        print("After inserting decoder embedding - ", x.shape)
+        # append mask tokens to sequence
+        mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
+        x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
+        print("after adding mask token - ", x_.shape)
+        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
+        print("after restoring ids/patch - ", x_.shape)
+        x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
+        print("Hidden state after inserting mask_tokens/hidden patches - ", x.shape)
+        # add pos embed
+        hidden_states = x + self.decoder_pos_embed
+
+        src = hidden_states
         print("Input to decoder - ", src.shape)
         for layer in self.layers:
             src = layer(src, inference_params=inference_params)
