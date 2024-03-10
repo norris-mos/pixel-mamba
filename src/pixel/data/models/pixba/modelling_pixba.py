@@ -738,6 +738,7 @@ class PIXBADecoder(nn.Module):
         print("after restoring ids/patch - ", x_.shape)
         x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
         print("Hidden state after inserting mask_tokens/hidden patches - ", x.shape)
+        print("pos embedding - ", self.decoder_pos_embed.shape)
         # add pos embed
         hidden_states = x + self.decoder_pos_embed
 
