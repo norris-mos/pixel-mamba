@@ -272,7 +272,7 @@ class PIXBAEmbeddings(nn.Module):
         else:
             embeddings, mask, ids_restore = self.random_masking(embeddings) #, attention_mask)
             #embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
-
+        print("Embeddings after masking - ", embeddings.shape)
         # append cls token
         cls_token = self.cls_token + self.position_embeddings[:, :1, :]
         cls_tokens = cls_token.expand(embeddings.shape[0], -1, -1)
@@ -280,6 +280,7 @@ class PIXBAEmbeddings(nn.Module):
         #attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
 
         #return embeddings, attention_mask, mask, ids_restore
+        print("PIXELEmbeddings return embeddings of dimension - ", embeddings.shape)
         return embeddings, mask, ids_restore # embeddings - (B, 529, 768)
 
 
