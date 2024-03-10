@@ -278,6 +278,9 @@ class MambaInnerFn(torch.autograd.Function):
             dC = None
         ddelta = rearrange(ddelta, "b d l -> d (b l)")
         ddelta_proj_weight = torch.einsum("dB,Br->dr", ddelta, x_dbl[:, :delta_rank])
+        print("ddelta float16? ", ddelta.dtype == torch.float16)
+        print("delta_proj_weight float16? ", delta_proj_weight.dtype == torch.float16)
+
         dx_dbl[:, :delta_rank] = torch.einsum("dB,dr->Br", ddelta, delta_proj_weight)
         dconv1d_out = rearrange(dconv1d_out, "b d l -> d (b l)")
         dx_proj_weight = torch.einsum("Br,Bd->rd", dx_dbl, rearrange(conv1d_out, "b d l -> (b l) d"))
