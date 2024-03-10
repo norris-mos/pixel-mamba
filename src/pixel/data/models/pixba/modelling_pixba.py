@@ -670,8 +670,9 @@ class PIXBAEncoder(nn.Module):
 
     def forward(self, src, inference_params=None):
         # src should be embeddings_output: (B, 529, 768)
+        print("Input to encoder - ",src.shape)
         for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
-            src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 529, 768)
+            src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 397, 768)
         src = self.norm(src)
         return src
 
@@ -704,10 +705,13 @@ class PIXBADecoder(nn.Module):
         self.head = nn.Identity()
 
     def forward(self, src, return_token_num, inference_params=None):
+        print("Input to decoder - ", src.shape)
         for layer in self.layers:
             src = layer(src, inference_params=inference_params)
         src = self.norm(src)
-        src = self.head(src[:, -return_token_num:])
+        #src = self.head(src[:, -return_token_num:])
+        src = self.head(src)
+        print("Out of decoder - ", src.shape)
         return src
 
 """
@@ -993,7 +997,7 @@ class PIXBAForPreTraining(nn.Module):
         mask = outputs.mask
 
         decoder_outputs = self.decoder(latent, ids_restore)#, attention_mask)  # [N, L, p*p*3]
-        logits = decoder_outputs.logits
+        logits = decoder_outputs #decoder_outputs.logits
 
         #merged_mask = torch.bitwise_and(mask == 1, attention_mask == 1).long()
         #loss = self.forward_loss(pixel_values, logits, merged_mask)
@@ -1012,3 +1016,4 @@ class PIXBAForPreTraining(nn.Module):
             hidden_states=outputs.hidden_states,
             #attentions=outputs.attentions,
         )
+
