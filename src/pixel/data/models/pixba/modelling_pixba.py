@@ -137,7 +137,7 @@ class PIXBAPatchEmbeddings(nn.Module):
                 f"Input image size ({height}*{width}) doesn't match model ({self.image_size[0]}*{self.image_size[1]})."
             )
         x = self.projection(pixel_values).flatten(2).transpose(1, 2)
-        return x
+        return x # should be - (B, 529, 768)
 
 
 class PIXBAEmbeddings(nn.Module):
@@ -280,7 +280,7 @@ class PIXBAEmbeddings(nn.Module):
         #attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
 
         #return embeddings, attention_mask, mask, ids_restore
-        return embeddings, mask, ids_restore
+        return embeddings, mask, ids_restore # embeddings - (B, 529, 768)
 
 
 # MAMBA BLOCK
@@ -645,7 +645,7 @@ class PIXBABlockWrapper(nn.Module):
 class PIXBAEncoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.layers = nn.ModuleList([
+        self.layers = nn.ModuleList([ #each layer returns (out: out_proj)
             PIXBABlock(
                 d_model=config.d_model,
                 d_state=config.d_state,
@@ -669,8 +669,9 @@ class PIXBAEncoder(nn.Module):
         self.norm = nn.LayerNorm(config.d_model)
 
     def forward(self, src, inference_params=None):
+        # src should be embeddings_output: (B, 529, 768)
         for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
-            src = layer(src, inference_params=inference_params)
+            src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 529, 768)
         src = self.norm(src)
         return src
 
@@ -702,7 +703,7 @@ class PIXBADecoder(nn.Module):
         self.norm = nn.LayerNorm(config.d_model)
         self.head = nn.Identity()
 
-    def forward(self, src, pos, return_token_num, inference_params=None):
+    def forward(self, src, return_token_num, inference_params=None):
         for layer in self.layers:
             src = layer(src, inference_params=inference_params)
         src = self.norm(src)
@@ -829,7 +830,8 @@ class PIXBAModel(nn.Module):
             #output_hidden_states = output_hidden_states,
             #return_dict = return_dict,
         )
-        sequence_output = encoder_outputs[0]
+        print("Encoder return output of dimension - ", encoder_outputs.shape)
+        sequence_output = encoder_outputs
         #sequence_output = self.layernorm(sequence_output)
 
         if not return_dict:
