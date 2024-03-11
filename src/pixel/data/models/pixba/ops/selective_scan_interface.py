@@ -168,7 +168,7 @@ class MambaInnerFn(torch.autograd.Function):
         delta_rank = delta_proj_weight.shape[1]
         d_state = A.shape[-1] * (1 if not A.is_complex() else 2)
         if torch.is_autocast_enabled():
-            print("Atuocasting enabled")
+            #print("Atuocasting enabled")
             x_proj_weight = x_proj_weight.to(dtype=torch.get_autocast_gpu_dtype())
             delta_proj_weight = delta_proj_weight.to(dtype=torch.get_autocast_gpu_dtype())
             out_proj_weight = out_proj_weight.to(dtype=torch.get_autocast_gpu_dtype())
@@ -223,8 +223,9 @@ class MambaInnerFn(torch.autograd.Function):
         ctx.checkpoint_lvl = checkpoint_lvl
         if checkpoint_lvl >= 1:  # Will recompute conv1d_out and delta in the backward pass
             conv1d_out, delta = None, None
-        print("saving delta as float16? ", delta.dtype == torch.float16)
-        print("saving delta_proj_weight as float16? ", delta_proj_weight.dtype == torch.float16)
+            #if(hasattr(delta, "dtype")):
+            #print("saving delta as float16? ", delta.dtype == torch.float16)
+        #print("saving delta_proj_weight as float16? ", delta_proj_weight.dtype == torch.float16)
         ctx.save_for_backward(xz, conv1d_weight, conv1d_bias, x_dbl, x_proj_weight,
                               delta_proj_weight, out_proj_weight, conv1d_out, delta,
                               A, B, C, D, delta_bias, scan_intermediates, out)
@@ -281,8 +282,8 @@ class MambaInnerFn(torch.autograd.Function):
             dC = None
         ddelta = rearrange(ddelta, "b d l -> d (b l)")
         ddelta_proj_weight = torch.einsum("dB,Br->dr", ddelta, x_dbl[:, :delta_rank])
-        print("ddelta float16? ", ddelta.dtype == torch.float16)
-        print("delta_proj_weight float16? ", delta_proj_weight.dtype == torch.float16)
+        #print("ddelta float16? ", ddelta.dtype == torch.float16)
+        #print("delta_proj_weight float16? ", delta_proj_weight.dtype == torch.float16)
 
         dx_dbl[:, :delta_rank] = torch.einsum("dB,dr->Br", ddelta, delta_proj_weight)
         dconv1d_out = rearrange(dconv1d_out, "b d l -> d (b l)")

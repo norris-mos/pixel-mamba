@@ -194,7 +194,7 @@ class PIXBAEmbeddings(nn.Module):
         # And bump up noise to 100 to guarantee that it gets masked
         # We therefore ensure that at least one masked patch has actual text
         # This is necessary because we only compute loss on patches having text, i.e. loss would otherwise be NaN
-        print(noise.shape)
+        #print(noise.shape)
         
         # Harsh - since we are not using masking I don't think we need to increase the noise.
         # noise_mask = torch.argmax(noise * attention_mask, dim=1)
@@ -254,9 +254,9 @@ class PIXBAEmbeddings(nn.Module):
             patch_mask=None
             ):
         batch_size, num_channels, height, width = pixel_values.shape
-        print(f'pixel dimensions before embedding:{pixel_values.shape}')
+        #print(f'pixel dimensions before embedding:{pixel_values.shape}')
         embeddings = self.patch_embeddings(pixel_values)
-        print(f'pixel dimensions after embedding:{embeddings.shape}')
+        #print(f'pixel dimensions after embedding:{embeddings.shape}')
 
         # add position embeddings w/o cls token
         embeddings = embeddings + self.position_embeddings[:, 1:, :]
@@ -272,7 +272,7 @@ class PIXBAEmbeddings(nn.Module):
         else:
             embeddings, mask, ids_restore = self.random_masking(embeddings) #, attention_mask)
             #embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
-        print("Embeddings after masking - ", embeddings.shape)
+        #print("Embeddings after masking - ", embeddings.shape)
         # append cls token
         cls_token = self.cls_token + self.position_embeddings[:, :1, :]
         cls_tokens = cls_token.expand(embeddings.shape[0], -1, -1)
@@ -280,7 +280,7 @@ class PIXBAEmbeddings(nn.Module):
         #attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
 
         #return embeddings, attention_mask, mask, ids_restore
-        print("PIXELEmbeddings return embeddings of dimension - ", embeddings.shape)
+        #print("PIXELEmbeddings return embeddings of dimension - ", embeddings.shape)
         return embeddings, mask, ids_restore # embeddings - (B, 529, 768)
 
 
@@ -671,10 +671,11 @@ class PIXBAEncoder(nn.Module):
 
     def forward(self, src, inference_params=None):
         # src should be embeddings_output: (B, 529, 768)
-        print("Input to encoder - ",src.shape)
+        #print("Input to encoder - ",src.shape)
         src = src.to(torch.float16)
-        for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
-            src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 397, 768)
+        with torch.cuda.amp.autocast():
+            for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
+                src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 397, 768)
         src = self.norm(src)
         return src
 
@@ -721,33 +722,34 @@ class PIXBADecoder(nn.Module):
             self.decoder_pos_embed.shape[-1], int(num_patches ** 0.5), add_cls_token=True
         )
         x = torch.from_numpy(decoder_pos_embed).float().unsqueeze(0)
-        print('unsqueezing output of sin/cos - ', x.shape)
+        #print('unsqueezing output of sin/cos - ', x.shape)
         self.decoder_pos_embed.data.copy_(x)
-        print("decoder position embedding - ", self.decoder_pos_embed.shape)
+        #print("decoder position embedding - ", self.decoder_pos_embed.shape)
 
         # timm's trunc_normal_(std=.02) is effectively normal_(std=0.02) as cutoff is too big (2.)
         torch.nn.init.normal_(self.mask_token, std=self.config.initializer_range)
 
     def forward(self, encoder_output, ids_restore, return_token_num=0, inference_params=None):
         x = self.decoder_embed(encoder_output)
-        print("After inserting decoder embedding - ", x.shape)
+        #print("After inserting decoder embedding - ", x.shape)
         # append mask tokens to sequence
         mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
         x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
-        print("after adding mask token - ", x_.shape)
+        #print("after adding mask token - ", x_.shape)
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
-        print("after restoring ids/patch - ", x_.shape)
+        #print("after restoring ids/patch - ", x_.shape)
         x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
-        print("Hidden state after inserting mask_tokens/hidden patches - ", x.shape)
-        print("pos embedding - ", self.decoder_pos_embed.shape)
+        #print("Hidden state after inserting mask_tokens/hidden patches - ", x.shape)
+        #print("pos embedding - ", self.decoder_pos_embed.shape)
         # add pos embed
         hidden_states = x + self.decoder_pos_embed
 
         src = hidden_states
-        print("Input to decoder - ", src.shape)
-        src = src.to(torch.float16)
-        for layer in self.layers:
-            src = layer(src, inference_params=inference_params)
+        #print("Input to decoder - ", src.shape)
+        # src = src.to(torch.float16)
+        with torch.cuda.amp.autocast():
+            for layer in self.layers:
+                src = layer(src, inference_params=inference_params)
         src = self.norm(src)
         #src = self.head(src[:, -return_token_num:])
         src = self.head(src)
@@ -755,7 +757,7 @@ class PIXBADecoder(nn.Module):
         # remove cls token
         src = src[:, 1:, :]
 
-        print("Out of decoder - ", src.shape)
+        #print("Out of decoder - ", src.shape)
         return src
 
 """
@@ -878,7 +880,7 @@ class PIXBAModel(nn.Module):
             #output_hidden_states = output_hidden_states,
             #return_dict = return_dict,
         )
-        print("Encoder return output of dimension - ", encoder_outputs.shape)
+        #print("Encoder return output of dimension - ", encoder_outputs.shape)
         sequence_output = encoder_outputs
         #sequence_output = self.layernorm(sequence_output)
 
