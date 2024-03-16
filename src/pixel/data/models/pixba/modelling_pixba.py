@@ -586,7 +586,7 @@ class PIXBABlock(nn.Module):
     
 class PIXBABlockWrapper(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=True
+        self, dim, mixer_cls, norm_cls=nn.RMSNorm, fused_add_norm=False, residual_in_fp32=True
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -608,7 +608,7 @@ class PIXBABlockWrapper(nn.Module):
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
-                self.norm, (nn.LayerNorm, RMSNorm)
+                self.norm, (RMSNorm)
             ), "Only LayerNorm and RMSNorm are supported for fused_add_norm"
 
     def forward(
@@ -667,21 +667,21 @@ class PIXBAEncoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=nn.LayerNorm,  # or RMSNorm, depending on your preference
-                fused_add_norm=False,  # Set based on whether you want to fuse add and norm
-                residual_in_fp32=False  # Set based on your precision requirements
+                norm_cls=nn.RMSNorm,  # or RMSNorm, depending on your preference
+                fused_add_norm=True,  # Set based on whether you want to fuse add and norm
+                residual_in_fp32=True  # Set based on your precision requirements
             )
             for i in range(config.num_encoder_layers)
         ])
-        self.norm = nn.LayerNorm(config.d_model)
+        self.norm = nn.RMSNorm(config.d_model)
 
     def forward(self, src, inference_params=None):
         src = src.to(torch.float32)
-        
+        residual = None
         for layer in self.layers:
                 # Since PIXBABlockWrapper's forward method now returns hidden_states and residual,
                 # adjust accordingly if you use the residual. Otherwise, just use the first return value.
-            src, _ = layer(src, inference_params=inference_params)
+            src, residual = layer(src,residual, inference_params=inference_params)
         src = self.norm(src)
         return src
 
@@ -719,13 +719,13 @@ class PIXBADecoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=nn.LayerNorm,  # or RMSNorm, based on preference
-                fused_add_norm=False,  # Adjust based on need
+                norm_cls=nn.RMSNorm,  # or RMSNorm, based on preference
+                fused_add_norm=True,  # Adjust based on need
                 residual_in_fp32=True  # Adjust based on precision requirements
             )
             for i in range(config.num_decoder_layers)
         ])
-        self.norm = nn.LayerNorm(config.d_model)
+        self.norm = nn.RMSNorm(config.d_model)
         self.head = nn.Identity()
         self.initialize_weights(config.num_patches)
 
@@ -749,10 +749,11 @@ class PIXBADecoder(nn.Module):
         hidden_states = x + self.decoder_pos_embed
 
         src = hidden_states
+        residual = None
         
         for layer in self.layers:
                 # Adjusting to handle the output of PIXBABlockWrapper, if necessary
-            src, _ = layer(src, inference_params=inference_params)
+            src,residual = layer(src,residual, inference_params=inference_params)
         src = self.norm(src)
         src = self.head(src)
         src = src[:, 1:, :]
