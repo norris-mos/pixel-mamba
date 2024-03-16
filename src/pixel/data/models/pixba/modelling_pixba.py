@@ -586,7 +586,7 @@ class PIXBABlock(nn.Module):
     
 class PIXBABlockWrapper(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=True
+        self, dim, mixer_cls, norm_cls=RMSNorm, fused_add_norm=False, residual_in_fp32=True
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -604,7 +604,7 @@ class PIXBABlockWrapper(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
         self.mixer = mixer_cls(dim)
-        self.norm = RMSNorm#norm_cls(dim)
+        self.norm = norm_cls(dim)
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
