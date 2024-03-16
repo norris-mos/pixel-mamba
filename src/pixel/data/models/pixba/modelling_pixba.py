@@ -586,7 +586,7 @@ class PIXBABlock(nn.Module):
     
 class PIXBABlockWrapper(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=nn.RMSNorm, fused_add_norm=False, residual_in_fp32=True
+        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=True
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -604,7 +604,7 @@ class PIXBABlockWrapper(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
         self.mixer = mixer_cls(dim)
-        self.norm = norm_cls(dim)
+        self.norm = RMSNorm#norm_cls(dim)
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
@@ -670,13 +670,13 @@ class PIXBAEncoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=nn.RMSNorm,  # or RMSNorm, depending on your preference
+                norm_cls=RMSNorm,  # or RMSNorm, depending on your preference
                 fused_add_norm=True,  # Set based on whether you want to fuse add and norm
                 residual_in_fp32=True  # Set based on your precision requirements
             )
             for i in range(config.num_encoder_layers)
         ])
-        self.norm = nn.RMSNorm(config.d_model)
+        self.norm = RMSNorm(config.d_model)
 
     def forward(self, src, inference_params=None):
         src = src.to(torch.float32)
@@ -722,13 +722,13 @@ class PIXBADecoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=nn.RMSNorm,  # or RMSNorm, based on preference
+                norm_cls=RMSNorm,  # or RMSNorm, based on preference
                 fused_add_norm=True,  # Adjust based on need
                 residual_in_fp32=True  # Adjust based on precision requirements
             )
             for i in range(config.num_decoder_layers)
         ])
-        self.norm = nn.RMSNorm(config.d_model)
+        self.norm = RMSNorm(config.d_model)
         self.head = nn.Identity()
         self.initialize_weights(config.num_patches)
 
