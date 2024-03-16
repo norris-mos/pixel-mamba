@@ -586,7 +586,7 @@ class PIXBABlock(nn.Module):
     
 class PIXBABlockWrapper(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
+        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=True
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -642,40 +642,46 @@ class PIXBABlockWrapper(nn.Module):
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         return self.mixer.allocate_inference_cache(batch_size, max_seqlen, dtype=dtype, **kwargs)
 
-
 class PIXBAEncoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.layers = nn.ModuleList([ #each layer returns (out: out_proj)
-            PIXBABlock(
-                d_model=config.d_model,
-                d_state=config.d_state,
-                d_conv=config.d_conv,
-                expand=config.expand,
-                dt_rank=config.dt_rank,
-                dt_min=config.dt_min,
-                dt_max=config.dt_max,
-                dt_init=config.dt_init,
-                dt_scale=config.dt_scale,
-                dt_init_floor=config.dt_init_floor,
-                conv_bias=config.conv_bias,
-                bias=config.bias,
-                use_fast_path=config.use_fast_path,
-                layer_idx=i,
-                device=config.device,
-                dtype=config.dtype,
+        self.layers = nn.ModuleList([
+            # Create instances of PIXBABlockWrapper, passing PIXBABlock as mixer_cls
+            PIXBABlockWrapper(
+                dim=config.d_model,
+                mixer_cls=lambda dim: PIXBABlock(
+                    d_model=config.d_model,
+                    d_state=config.d_state,
+                    d_conv=config.d_conv,
+                    expand=config.expand,
+                    dt_rank=config.dt_rank,
+                    dt_min=config.dt_min,
+                    dt_max=config.dt_max,
+                    dt_init=config.dt_init,
+                    dt_scale=config.dt_scale,
+                    dt_init_floor=config.dt_init_floor,
+                    conv_bias=config.conv_bias,
+                    bias=config.bias,
+                    use_fast_path=config.use_fast_path,
+                    layer_idx=i,
+                    device=config.device,
+                    dtype=config.dtype,
+                ),
+                norm_cls=nn.LayerNorm,  # or RMSNorm, depending on your preference
+                fused_add_norm=False,  # Set based on whether you want to fuse add and norm
+                residual_in_fp32=False  # Set based on your precision requirements
             )
-            for i in range(config.num_layers)
+            for i in range(config.num_encoder_layers)
         ])
         self.norm = nn.LayerNorm(config.d_model)
 
     def forward(self, src, inference_params=None):
-        # src should be embeddings_output: (B, 529, 768)
-        #print("Input to encoder - ",src.shape)
-        src = src.to(torch.float16)
-        with torch.cuda.amp.autocast():
-            for layer in self.layers: # In Mamba paper, hidden_states from previous layers are normalised before going into the next layer - ref: mamba_simple @line 349. Even in PIXEL is see similar thing happening in modelling_pixel.js @line841 - Harsh
-                src = layer(src, inference_params=inference_params) # src is now - out_proj (B, 397, 768)
+        src = src.to(torch.float32)
+        
+        for layer in self.layers:
+                # Since PIXBABlockWrapper's forward method now returns hidden_states and residual,
+                # adjust accordingly if you use the residual. Otherwise, just use the first return value.
+            src, _ = layer(src, inference_params=inference_params)
         src = self.norm(src)
         return src
 
@@ -692,73 +698,66 @@ class PIXBADecoder(nn.Module):
         )  # fixed sin-cos embedding
 
         self.layers = nn.ModuleList([
-            PIXBABlock(
-                d_model=config.d_model,
-                d_state=config.d_state,
-                d_conv=config.d_conv,
-                expand=config.expand,
-                dt_rank=config.dt_rank,
-                dt_min=config.dt_min,
-                dt_max=config.dt_max,
-                dt_init=config.dt_init,
-                dt_scale=config.dt_scale,
-                dt_init_floor=config.dt_init_floor,
-                conv_bias=config.conv_bias,
-                bias=config.bias,
-                use_fast_path=config.use_fast_path,
-                layer_idx=i,
-                device=config.device,
-                dtype=config.dtype,
+            # Replace PIXBABlock with PIXBABlockWrapper around PIXBABlock
+            PIXBABlockWrapper(
+                dim=config.d_model,
+                mixer_cls=lambda dim: PIXBABlock(
+                    d_model=config.d_model,
+                    d_state=config.d_state,
+                    d_conv=config.d_conv,
+                    expand=config.expand,
+                    dt_rank=config.dt_rank,
+                    dt_min=config.dt_min,
+                    dt_max=config.dt_max,
+                    dt_init=config.dt_init,
+                    dt_scale=config.dt_scale,
+                    dt_init_floor=config.dt_init_floor,
+                    conv_bias=config.conv_bias,
+                    bias=config.bias,
+                    use_fast_path=config.use_fast_path,
+                    layer_idx=i,
+                    device=config.device,
+                    dtype=config.dtype,
+                ),
+                norm_cls=nn.LayerNorm,  # or RMSNorm, based on preference
+                fused_add_norm=False,  # Adjust based on need
+                residual_in_fp32=True  # Adjust based on precision requirements
             )
-            for i in range(config.num_layers)
+            for i in range(config.num_decoder_layers)
         ])
         self.norm = nn.LayerNorm(config.d_model)
         self.head = nn.Identity()
         self.initialize_weights(config.num_patches)
 
-    def initialize_weights(self, num_patches):
-        # initialize (and freeze) position embeddings by sin-cos embedding
-        decoder_pos_embed = get_2d_sincos_pos_embed(
-            self.decoder_pos_embed.shape[-1], int(num_patches ** 0.5), add_cls_token=True
-        )
-        x = torch.from_numpy(decoder_pos_embed).float().unsqueeze(0)
-        #print('unsqueezing output of sin/cos - ', x.shape)
-        self.decoder_pos_embed.data.copy_(x)
-        #print("decoder position embedding - ", self.decoder_pos_embed.shape)
+    # Initialization and other methods remain unchanged
+    def initialize_weights(self,num_patches):
 
-        # timm's trunc_normal_(std=.02) is effectively normal_(std=0.02) as cutoff is too big (2.)
+
+        decoder_pos_embed = get_2d_sincos_pos_embed(
+                self.decoder_pos_embed.shape[-1],int(num_patches**0.5),add_cls_token=True)
+        self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
+
         torch.nn.init.normal_(self.mask_token, std=self.config.initializer_range)
+
 
     def forward(self, encoder_output, ids_restore, return_token_num=0, inference_params=None):
         x = self.decoder_embed(encoder_output)
-        #print("After inserting decoder embedding - ", x.shape)
-        # append mask tokens to sequence
         mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
-        x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
-        #print("after adding mask token - ", x_.shape)
-        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
-        #print("after restoring ids/patch - ", x_.shape)
-        x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
-        #print("Hidden state after inserting mask_tokens/hidden patches - ", x.shape)
-        #print("pos embedding - ", self.decoder_pos_embed.shape)
-        # add pos embed
+        x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)
+        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))
+        x = torch.cat([x[:, :1, :], x_], dim=1)
         hidden_states = x + self.decoder_pos_embed
 
         src = hidden_states
-        #print("Input to decoder - ", src.shape)
-        # src = src.to(torch.float16)
-        with torch.cuda.amp.autocast():
-            for layer in self.layers:
-                src = layer(src, inference_params=inference_params)
+        
+        for layer in self.layers:
+                # Adjusting to handle the output of PIXBABlockWrapper, if necessary
+            src, _ = layer(src, inference_params=inference_params)
         src = self.norm(src)
-        #src = self.head(src[:, -return_token_num:])
         src = self.head(src)
-
-        # remove cls token
         src = src[:, 1:, :]
-
-        #print("Out of decoder - ", src.shape)
         return src
+
 
 """
 

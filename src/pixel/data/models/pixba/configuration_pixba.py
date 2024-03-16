@@ -89,11 +89,12 @@ class PIXBAConfig(PretrainedConfig):
         #Mamba configs 
 #############################
         d_model = 768,
-        num_layers = 64,
+        num_encoder_layers = 24,
+        num_decoder_layers=7,
         vocab_size=50277,
         ssm_cfg = {},#field(default_factory=dict),
         rms_norm=True,
-        residual_in_fp32=True,
+        residual_in_fp32=True, # possible true #########################
         fused_add_norm=True,
         pad_vocab_size_multiple=8,
         d_state=16,
@@ -136,7 +137,8 @@ class PIXBAConfig(PretrainedConfig):
 
 ####################################################   
         self.d_model=d_model
-        self.num_layers=num_layers
+        self.num_encoder_layers=num_encoder_layers
+        self.num_decoder_layers=num_decoder_layers
         self.vocab_size= vocab_size
         self.ssm_cfg= ssm_cfg
         self.rms_norm = rms_norm

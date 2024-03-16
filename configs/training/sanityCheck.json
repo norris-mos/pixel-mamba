@@ -1,7 +1,7 @@
 {
     "train_dataset_names": "Team-PIXEL/rendered-wikipedia-english",
     "validation_dataset_name": "Team-PIXEL/rendered-wikipedia-english",
-    "dataset_cache": "data/rendered-wikipedia-en",
+    "dataset_cache": "/mnt/ceph_rbd/data/cache/huggingface/datasets/Team-PIXEL___rendered-bookcorpus",
     "train_splits": "train[:1%]",
     "validation_split": "train[-1%:]",
     "label_names": "pixel_values",
@@ -24,7 +24,7 @@
     "seed": 42,
     "use_auth_token": "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",
     "remove_unused_columns": false,
-    "fp16": true,
+    "fp16": false,
     "half_precision_backend": "apex",
     "streaming": false,
     "report_to": "wandb",
@@ -33,7 +33,7 @@
     "hub_strategy": "checkpoint",
     "hub_token": "<redacted_token_with_write_access>",
     "hub_private_repo": true,
-    "text_renderer_name_or_path": "configs/renderers/noto_renderer",
+    "text_renderer_name_or_path": "/mnt/ceph_rbd/pixel-mamba/configs/renderers/noto_renderer",
     "output_dir": "outputs/",
-    "dataset_caches": "/exports/eddie/scratch/s2581395/pixel-mamba/cache"
+    "dataset_caches": "/mnt/ceph_rbd/data/cache/huggingface/datasets/Team-PIXEL___rendered-wikipedia-english/default-60d26e180621cd9b/0.0.0/0111277fb19b16f696664cde7f0cb90f833dec72db2cc73cfdf87e697f78fe02"
 }
