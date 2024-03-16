@@ -620,6 +620,9 @@ class PIXBABlockWrapper(nn.Module):
             hidden_states: the sequence to the encoder layer (required).
             residual: hidden_states = Mixer(LN(residual))
         """
+        if residual is None:
+            residual = torch.zeros_like(hidden_states)
+
         if not self.fused_add_norm:
             residual = (hidden_states + residual) if residual is not None else hidden_states
             hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
@@ -760,100 +763,7 @@ class PIXBADecoder(nn.Module):
         return src
 
 
-"""
 
-class PIXBAEncoder(nn.Module):
-    def __init__(self, config, num_blocks):
-        super(PIXBAEncoder, self).__init__()
-        d_model = config.d_model
-        d_state = config.d_state
-        d_conv = config.d_conv
-        expand = config.expand
-        self.layers = nn.ModuleList([PIXBABlock(d_model, d_state, d_conv, expand) for _ in range(num_blocks)])
-
-    def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-"""
-"""
-#More complex architecture for encoding... however does not align as well with original PIXEL encoder structure
-class PIXBAEncoder(nn.Module):
-    def __init__(
-        self,
-        input_dim: int,
-        max_seq_len: int,
-        d_model: int = 256,
-        d_state: int = 16,
-        d_conv: int = 4,
-        expand: int = 2,
-        n_layers: int = 3,
-        norm: str = "layer",
-    ):
-        super().__init__()
-        self.input_dim = input_dim
-        self.max_seq_len = max_seq_len
-
-        self.inp = nn.Linear(input_dim, d_model)
-
-        self.blocks = nn.ModuleList([
-            PIXBABlock(
-                d_model=d_model,
-                d_state=d_state,
-                d_conv=d_conv,
-                expand=expand,
-                norm=norm,
-            )
-            for _ in range(n_layers)
-        ])
-
-        self.out_norm = nn.LayerNorm(d_model)
-        self._emb_dim = d_model
-
-    def init_hidden_state(self, batch_size: int, device: torch.device):
-        conv_states, ssm_states = [], []
-        for block in self.blocks:
-            conv_state, ssm_state = block.allocate_inference_cache(
-                batch_size, max_seqlen=self.max_seq_len
-            )
-            conv_states.append(conv_state)
-            ssm_states.append(ssm_state)
-        return PIXBAHiddenState(conv_states, ssm_states)
-
-    def reset_hidden_state(self, hidden_state, dones):
-        if hidden_state is None:
-            return None
-        assert isinstance(hidden_state, PIXBAHiddenState)
-        hidden_state.reset(idxs=dones)
-        return hidden_state
-
-    def forward(self, seq, time_idxs=None, hidden_state=None):
-        seq = self.inp(seq)
-        if hidden_state is None:
-            for block in self.blocks:
-                seq = block(seq)
-        else:
-            assert not self.training
-            assert isinstance(hidden_state, PIXBAHiddenState)
-            for i, block in enumerate(self.blocks):
-                conv_state_i, ssm_state_i = hidden_state[i]
-                seq, new_conv_state_i, new_ssm_state_i = block.step(
-                    seq, conv_state=conv_state_i, ssm_state=ssm_state_i
-                )
-                hidden_state[i] = new_conv_state_i, new_ssm_state_i
-        return self.out_norm(seq), hidden_state
-
-
-class PIXBAHiddenState:
-    def __init__(self, conv_states, ssm_states):
-        self.conv_states = conv_states
-        self.ssm_states = ssm_states
-
-    def reset(self, idxs):
-        for conv_state, ssm_state in zip(self.conv_states, self.ssm_states):
-            conv_state[idxs] = 0
-            ssm_state[idxs] = 0
-        """
 
 #TODO FIX MODEL to corresopond to Enocoder & Decoder
 class PIXBAModel(nn.Module):
