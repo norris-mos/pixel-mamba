@@ -512,6 +512,11 @@ def main(config_dict: Dict[str, Any] = None):
         metrics = trainer.evaluate()
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
+        eval_loss = metrics.get("eval_loss", None)  # or the correct key for evaluation loss
+        if eval_loss is not None:
+            
+            logger.info(f"Evaluation Loss: {eval_loss}")
+
 
     # Write model card and (optionally) push to hub
     kwargs = {

@@ -621,7 +621,7 @@ class PIXBABlockWrapper(nn.Module):
             residual: hidden_states = Mixer(LN(residual))
         """
         if residual is None:
-            residual = torch.zeros_like(hidden_states)
+            residual = torch.zeros_like(hidden_states) # this might be an incorrect implementation
 
         if not self.fused_add_norm:
             residual = (hidden_states + residual) if residual is not None else hidden_states
