@@ -9,6 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from einops import rearrange, repeat
+from functools import partial
 
 import numpy as np
 import torch
@@ -110,6 +111,38 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
+
+
+def _mamba_init_weights(
+    module,
+    n_layer,
+    initializer_range=0.02,  # Now only used for embedding layer.
+    rescale_prenorm_residual=True,
+    n_residuals_per_layer=1,  # Change to 2 if we have MLP
+):
+    if isinstance(module, nn.Linear):
+        if module.bias is not None:
+            if not getattr(module.bias, "_no_reinit", False):
+                nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.Embedding):
+        nn.init.normal_(module.weight, std=initializer_range)
+
+    if rescale_prenorm_residual:
+        # Reinitialize selected weights subject to the OpenAI GPT-2 Paper Scheme:
+        #   > A modified initialization which accounts for the accumulation on the residual path with model depth. Scale
+        #   > the weights of residual layers at initialization by a factor of 1/√N where N is the # of residual layers.
+        #   >   -- GPT-2 :: https://openai.com/blog/better-language-models/
+        #
+        # Reference (Megatron-LM): https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/model/gpt_model.py
+        for name, p in module.named_parameters():
+            if name in ["out_proj.weight", "fc2.weight"]:
+                # Special Scaled Initialization --> There are 2 Layer Norms per Transformer Block
+                # Following Pytorch init, except scale by 1/sqrt(2 * n_layer)
+                # We need to reinit p since this code could be called multiple times
+                # Having just p *= scale would repeatedly scale it down
+                nn.init.kaiming_uniform_(p, a=math.sqrt(5))
+                with torch.no_grad():
+                    p /= math.sqrt(n_residuals_per_layer * n_layer)
 
 
 class PIXBAPatchEmbeddings(nn.Module):
@@ -677,6 +710,7 @@ class PIXBAEncoder(nn.Module):
             for i in range(config.num_encoder_layers)
         ])
         self.norm = RMSNorm(config.d_model)
+        self.apply(partial(_mamba_init_weights, n_layer=config.num_encoder_layers))
 
     def forward(self, src, inference_params=None):
         src = src.to(torch.float32)
@@ -687,6 +721,9 @@ class PIXBAEncoder(nn.Module):
             src, residual = layer(src,residual, inference_params=inference_params)
         src = self.norm(src)
         return src
+    
+
+    
 
 
 class PIXBADecoder(nn.Module):
@@ -730,6 +767,7 @@ class PIXBADecoder(nn.Module):
         ])
         self.norm = RMSNorm(config.d_model)
         self.head = nn.Identity()
+        self.apply(partial(_mamba_init_weights, n_layer=config.num_encoder_layers)) # ToDo: this might initialize decoder_embed, check if that's the case and is it fine to initlialize. I think is should be fine as it's initializing with zeros.
         self.initialize_weights(config.num_patches)
 
     # Initialization and other methods remain unchanged
