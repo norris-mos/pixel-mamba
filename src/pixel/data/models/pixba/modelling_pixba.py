@@ -767,7 +767,7 @@ class PIXBADecoder(nn.Module):
         ])
         self.norm = RMSNorm(config.d_model)
         self.head = nn.Identity()
-        self.apply(partial(_mamba_init_weights, n_layer=config.num_encoder_layers)) # ToDo: this might initialize decoder_embed, check if that's the case and is it fine to initlialize. I think is should be fine as it's initializing with zeros.
+        self.apply(partial(_mamba_init_weights, n_layer=config.num_decoder_layers)) # ToDo: this might initialize decoder_embed, check if that's the case and is it fine to initlialize. I think is should be fine as it's initializing with zeros.
         self.initialize_weights(config.num_patches)
 
     # Initialization and other methods remain unchanged
