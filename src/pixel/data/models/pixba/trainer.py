@@ -47,7 +47,7 @@ class PIXBATrainer(Trainer):
 
         outputs = model(**inputs)
 
-        debug_log_outputs(inputs)
+        debug_log_outputs(outputs)
 
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
