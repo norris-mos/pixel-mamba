@@ -49,12 +49,11 @@ def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
     wandb.init(reinit=False)
 
     images = [wandb.Image(format_img(im)) for im in inputs["pixel_values"]]
-    attention_masks = [wandb.Image(format_mask(am)) for am in inputs["attention_mask"]]
-    seq_length = len(inputs["attention_mask"][0])
+  
     wandb.log(
         {
-            "images": images,
-            "attention_masks": attention_masks,
+            "images": images
+            
         }
     )
 
