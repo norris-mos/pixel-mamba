@@ -671,7 +671,7 @@ class PIXBAEncoder(nn.Module):
                     dtype=config.dtype,
                 ),
                 norm_cls=RMSNorm,  # or RMSNorm, depending on your preference
-                fused_add_norm=True,  # Set based on whether you want to fuse add and norm
+                fused_add_norm=False,  # Set based on whether you want to fuse add and norm
                 residual_in_fp32=True  # Set based on your precision requirements
             )
             for i in range(config.num_encoder_layers)
@@ -723,7 +723,7 @@ class PIXBADecoder(nn.Module):
                     dtype=config.dtype,
                 ),
                 norm_cls=RMSNorm,  # or RMSNorm, based on preference
-                fused_add_norm=True,  # Adjust based on need
+                fused_add_norm=False,  # Adjust based on need
                 residual_in_fp32=True  # Adjust based on precision requirements
             )
             for i in range(config.num_decoder_layers)

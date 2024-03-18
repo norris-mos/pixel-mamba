@@ -43,7 +43,7 @@ class PIXBATrainer(Trainer):
             labels = None
 
         # Uncomment this to visualize inputs
-        # debug_log_inputs(inputs)
+        debug_log_inputs(inputs)
 
         outputs = model(**inputs)
 
