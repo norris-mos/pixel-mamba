@@ -672,8 +672,8 @@ class PIXBAEncoder(nn.Module):
 
     def forward(self, src, inference_params=None):
         src = src.to(torch.float32)
-        if residual is None:
-            residual = torch.zeros_like(src)
+        
+        residual = torch.zeros_like(src)
         for layer in self.layers:
                 # Since PIXBABlockWrapper's forward method now returns hidden_states and residual,
                 # adjust accordingly if you use the residual. Otherwise, just use the first return value.
