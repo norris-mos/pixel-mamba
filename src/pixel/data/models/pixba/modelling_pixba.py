@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from einops import rearrange, repeat
-import matplotlib as plt
+
 import numpy as np
 import torch
 import torchvision.transforms.functional as F
