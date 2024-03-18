@@ -9,9 +9,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from einops import rearrange, repeat
-
+import matplotlib as plt
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 import wandb
 
 from utils.misc import get_2d_sincos_pos_embed
@@ -620,26 +621,17 @@ class PIXBABlockWrapper(nn.Module):
             hidden_states: the sequence to the encoder layer (required).
             residual: hidden_states = Mixer(LN(residual))
         """
-        if residual is None:
-            residual = torch.zeros_like(hidden_states) # this might be an incorrect implementation
+ # this might be an incorrect implementation
 
-        if not self.fused_add_norm:
-            residual = (hidden_states + residual) if residual is not None else hidden_states
-            hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
-            if self.residual_in_fp32:
-                residual = residual.to(torch.float32)
-        else:
-            fused_add_norm_fn = rms_norm_fn if isinstance(self.norm, RMSNorm) else layer_norm_fn
-            hidden_states, residual = fused_add_norm_fn(
-                hidden_states,
-                self.norm.weight,
-                self.norm.bias,
-                residual=residual,
-                prenorm=True,
-                residual_in_fp32=self.residual_in_fp32,
-                eps=self.norm.eps,
-            )
+
         hidden_states = self.mixer(hidden_states, inference_params=inference_params)
+
+
+        
+        residual = (hidden_states + residual) if residual is not None else hidden_states
+        hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
+
+       
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
@@ -680,7 +672,8 @@ class PIXBAEncoder(nn.Module):
 
     def forward(self, src, inference_params=None):
         src = src.to(torch.float32)
-        residual = None
+        if residual is None:
+            residual = torch.zeros_like(src)
         for layer in self.layers:
                 # Since PIXBABlockWrapper's forward method now returns hidden_states and residual,
                 # adjust accordingly if you use the residual. Otherwise, just use the first return value.
@@ -910,6 +903,7 @@ class PIXBAForPreTraining(nn.Module):
         imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
         return imgs
 
+
     def forward_loss(self, imgs, pred, mask):
         """
         imgs: [N, 3, H, W] pred: [N, L, p*p*3] mask: [N, L], 0 is keep, 1 is remove,
@@ -919,6 +913,10 @@ class PIXBAForPreTraining(nn.Module):
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
             target = (target - mean) / (var + 1.0e-6) ** 0.5
+
+        
+
+        
 
         loss = (pred - target) ** 2
         loss = loss.mean(dim=-1)  # [N, L], mean loss per patch

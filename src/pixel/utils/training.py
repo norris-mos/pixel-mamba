@@ -32,6 +32,13 @@ class PIXELTrainingArguments(TrainingArguments):
         default=False, metadata={"help": "Whether to log predictions to file and wandb."}
     )
 
+def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
+
+    wandb.init(reinit=False)
+    images = [wandb.Image(format_img(im)) for im in outputs["pixel_values"]]
+    wandb.log({
+        "output_images":images
+    })
 
 def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
     """
