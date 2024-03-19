@@ -867,6 +867,7 @@ class PIXBAModel(PIXELPreTrainedModel):
             last_hidden_state=sequence_output,
             mask=mask,
             ids_restore=ids_restore,
+            embedding_output=embedding_output,
         )
     
 @dataclass
@@ -902,6 +903,7 @@ class PIXBAForPreTrainingOutput(ModelOutput):
     mask: torch.LongTensor = None
     # attention_mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
+    embedding_output=None
     # hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
@@ -932,6 +934,7 @@ class PIXBAModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
+    embedding_output = None
     #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 class PIXBAForPreTraining(PIXELPreTrainedModel):
@@ -1017,6 +1020,7 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
         latent = outputs.last_hidden_state
         ids_restore = outputs.ids_restore
         mask = outputs.mask
+        embedding_output = outputs.embedding_output
 
         decoder_outputs = self.decoder(latent, ids_restore)#, attention_mask)  # [N, L, p*p*3]
         logits = decoder_outputs #decoder_outputs.logits
@@ -1035,6 +1039,7 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
             mask=mask,
             #attention_mask=attention_mask,
             ids_restore=ids_restore,
+            embedding_output=embedding_output,
             #hidden_states=outputs.hidden_states,
             #attentions=outputs.attentions,
         )

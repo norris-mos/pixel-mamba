@@ -26,6 +26,10 @@ logger = logging.get_logger(__name__)
 
 
 class PIXBATrainer(Trainer):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.log_step_counter=0
+        self.log_frequency = 500
     """
     Same as a regular Trainer but with the option to visualize inputs before they are fed into the model
     for debugging purposes
@@ -47,7 +51,11 @@ class PIXBATrainer(Trainer):
         # debug_log_inputs(inputs)
 
         outputs = model(**inputs)
-        debug_log_outputs(outputs)
+
+        if self.log_step_counter % self.log_frequency==0:
+            
+            debug_log_outputs(outputs)
+
 
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.

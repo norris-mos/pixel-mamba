@@ -66,10 +66,13 @@ def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
     wandb.init(reinit=False)
    # print("--outputs---------------",outputs["logits"].shape)
     images = wandb.Image(format_img2(outputs["logits"][0]))
+    masked_images = wandb.Image(format_img2(outputs["embedding_output"][0]))
     #images = [wandb.Image(i) for i in format_img2(outputs["logits"])]
     wandb.log({
-        "output_images":images
+        "output_images":images,
+        "masked_images":masked_images
     })
+    
 
 def format_img3(x: torch.Tensor):
     """
