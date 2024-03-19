@@ -8,7 +8,6 @@
     "do_train": true,
     "do_eval": false,
     "max_steps": 100000,
-    "base_learning_rate": 0.00032,
     "learning_rate": 6e-4,
     "weight_decay": 0.05,
     "num_train_epochs": 10,
