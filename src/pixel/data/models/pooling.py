@@ -190,42 +190,42 @@ class Pooling(nn.Module):
 
         return "+".join(modes)
 
-    def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor):
+    def forward(self, hidden_states: torch.Tensor):#, attention_mask: torch.Tensor):
 
         # Pooling strategy
         output_vectors = []
         if self.pooling_mode_cls_token:
             cls_token = hidden_states[:, 0, :]
             output_vectors.append(cls_token)
-        if self.pooling_mode_max_tokens:
-            input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
-            hidden_states[input_mask_expanded == 0] = -1e9  # Set padding tokens to large negative value
-            max_over_time = torch.max(hidden_states, 1)[0]
-            output_vectors.append(max_over_time)
-        if self.pooling_mode_mean_tokens or self.pooling_mode_mean_sqrt_len_tokens:
-            input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
-            sum_embeddings = torch.sum(hidden_states * input_mask_expanded, 1)
-            sum_mask = input_mask_expanded.sum(1)
-            sum_mask = torch.clamp(sum_mask, min=1e-9)
+        # if self.pooling_mode_max_tokens:
+        #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
+        #     hidden_states[input_mask_expanded == 0] = -1e9  # Set padding tokens to large negative value
+        #     max_over_time = torch.max(hidden_states, 1)[0]
+        #     output_vectors.append(max_over_time)
+        # if self.pooling_mode_mean_tokens or self.pooling_mode_mean_sqrt_len_tokens:
+        #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
+        #     sum_embeddings = torch.sum(hidden_states * input_mask_expanded, 1)
+        #     sum_mask = input_mask_expanded.sum(1)
+        #     sum_mask = torch.clamp(sum_mask, min=1e-9)
 
-            if self.pooling_mode_mean_tokens:
-                output_vectors.append(sum_embeddings / sum_mask)
-            if self.pooling_mode_mean_sqrt_len_tokens:
-                output_vectors.append(sum_embeddings / torch.sqrt(sum_mask))
-        if self.pooling_mode_pma_tokens:
-            # print(attention_mask)
-            input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
-            # print(hidden_states.shape, attention_mask.shape, input_mask_expanded.shape)
-            # torch.Size([64, 196, 768]) torch.Size([64, 196]) torch.Size([64, 196, 768])
-            # K.shape torch.Size([64, 196, 768])
-            # K_.shape torch.Size([256, 196, 192])
-            # K_.transpose(1,2).shape torch.Size([256, 192, 196])
-            # S torch.Size([256, 1, 196])
+        #     if self.pooling_mode_mean_tokens:
+        #         output_vectors.append(sum_embeddings / sum_mask)
+        #     if self.pooling_mode_mean_sqrt_len_tokens:
+        #         output_vectors.append(sum_embeddings / torch.sqrt(sum_mask))
+        # if self.pooling_mode_pma_tokens:
+        #     # print(attention_mask)
+        #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
+        #     # print(hidden_states.shape, attention_mask.shape, input_mask_expanded.shape)
+        #     # torch.Size([64, 196, 768]) torch.Size([64, 196]) torch.Size([64, 196, 768])
+        #     # K.shape torch.Size([64, 196, 768])
+        #     # K_.shape torch.Size([256, 196, 192])
+        #     # K_.transpose(1,2).shape torch.Size([256, 192, 196])
+        #     # S torch.Size([256, 1, 196])
 
-            # hidden_states[input_mask_expanded == 0] = -1e9  # Set padding tokens to large negative value
-            hidden_states = self.pooler(hidden_states, input_mask_expanded).squeeze(1)
-            # stop
-            output_vectors.append(hidden_states)
+        #     # hidden_states[input_mask_expanded == 0] = -1e9  # Set padding tokens to large negative value
+        #     hidden_states = self.pooler(hidden_states, input_mask_expanded).squeeze(1)
+        #     # stop
+        #     output_vectors.append(hidden_states)
 
         return torch.cat(output_vectors, 1)
 
@@ -276,26 +276,27 @@ class PoolingForSequenceClassificationHead(nn.Module):
         self.ln = nn.LayerNorm(hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
-        if pooling_mode == PoolingMode.MEAN:
-            self.pooling = Pooling(hidden_size)
-        elif pooling_mode == PoolingMode.MAX:
-            self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode_max_tokens=True)
-        elif pooling_mode == PoolingMode.CLS:
+        # if pooling_mode == PoolingMode.MEAN:
+        #     self.pooling = Pooling(hidden_size)
+        # elif pooling_mode == PoolingMode.MAX:
+        #     self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode_max_tokens=True)
+        if pooling_mode == PoolingMode.CLS:
             pass
-        elif pooling_mode == PoolingMode.PMA:
-            self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode=pooling_mode.mode)
+        # elif pooling_mode == PoolingMode.PMA:
+        #     self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode=pooling_mode.mode)
         else:
             raise ValueError(f"Pooling mode {pooling_mode} not supported.")
 
-    def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor):
+    def forward(self, hidden_states: torch.Tensor):#, attention_mask: torch.Tensor):
 
         if self.pooling_mode == PoolingMode.CLS:
             return hidden_states
         else:
-            if self.pooling_mode != PoolingMode.PMA:
-                hidden_states = self.activation(self.linear(hidden_states))
-            if self.add_layer_norm:
-                hidden_states = self.ln(hidden_states)
+            raise("PoolingForSequenceClassificationHead was not called for CLS")
+            # if self.pooling_mode != PoolingMode.PMA:
+            #     hidden_states = self.activation(self.linear(hidden_states))
+            # if self.add_layer_norm:
+            #     hidden_states = self.ln(hidden_states)
 
-            hidden_states = self.dropout(hidden_states)
-            return self.pooling(hidden_states=hidden_states, attention_mask=attention_mask)
+            # hidden_states = self.dropout(hidden_states)
+            # return self.pooling(hidden_states=hidden_states, attention_mask=attention_mask)

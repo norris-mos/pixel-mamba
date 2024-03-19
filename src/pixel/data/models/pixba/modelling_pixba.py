@@ -34,7 +34,7 @@ from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_
 # from pixel.utils import DependencyParsingModelOutput, format_mask
 
 # from biaffine import Biaffine
-# from pooling import PoolingForSequenceClassificationHead, PoolingMode
+from models.pooling import PoolingForSequenceClassificationHead, PoolingMode
 # from vit import ViTModel
 from .configuration_pixba import PIXBAConfig
 
@@ -730,17 +730,17 @@ class PIXBADecoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.decoder_embed = nn.Linear(config.hidden_size, config.d_model, bias=True)
-        self.mask_token = nn.Parameter(torch.zeros(1, 1, config.d_model))
+        self.decoder_embed = nn.Linear(config.hidden_size, config.d_model_decoder, bias=True)
+        self.mask_token = nn.Parameter(torch.zeros(1, 1, config.d_model_decoder))
 
         self.decoder_pos_embed = nn.Parameter(
-            torch.zeros(1, config.num_patches + 1, config.d_model), requires_grad=False
+            torch.zeros(1, config.num_patches + 1, config.d_model_decoder), requires_grad=False
         )  # fixed sin-cos embedding
 
         self.layers = nn.ModuleList([
             # Replace PIXBABlock with PIXBABlockWrapper around PIXBABlock
             PIXBABlockWrapper(
-                dim=config.d_model,
+                dim=config.d_model_decoder,
                 mixer_cls=lambda dim: PIXBABlock(
                     d_model=config.d_model,
                     d_state=config.d_state,
@@ -765,8 +765,11 @@ class PIXBADecoder(nn.Module):
             )
             for i in range(config.num_decoder_layers)
         ])
-        self.norm = nn.LayerNorm(config.d_model)
+        self.norm = nn.LayerNorm(config.d_model_decoder)
         self.head = nn.Identity()
+        self.decoder_pred = nn.Linear(
+            config.d_model_decoder, config.patch_size ** 2 * config.num_channels, bias=True
+        )  # encoder to decoder
         self.apply(partial(_mamba_init_weights, n_layer=config.num_decoder_layers)) # ToDo: this might initialize decoder_embed, check if that's the case and is it fine to initlialize. I think is should be fine as it's initializing with zeros.
         self.initialize_weights(config.num_patches)
 
@@ -796,6 +799,7 @@ class PIXBADecoder(nn.Module):
                 # Adjusting to handle the output of PIXBABlockWrapper, if necessary
             src,residual = layer(src,residual, inference_params=inference_params)
         src = self.norm(src)
+        src = self.decoder_pred(hidden_states)
         src = self.head(src)
         src = src[:, 1:, :]
         return src
@@ -1042,5 +1046,98 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
             embedding_output=embedding_output,
             #hidden_states=outputs.hidden_states,
             #attentions=outputs.attentions,
+        )
+
+class PIXELForSequenceClassification(nn.Module):
+    def __init__(self, model_args, config, pooling_mode: PoolingMode = PoolingMode.MEAN)#, add_layer_norm: bool = True):
+        super().__init__(config)
+
+        if not hasattr(self.config, "interpolate_pos_encoding"):
+            self.config.interpolate_pos_encoding = False
+
+        self.num_labels = config.num_labels
+
+        self.add_cls_pooling_layer = pooling_mode == PoolingMode.CLS
+        self.vit = PIXBAModel.from_pretrained(
+            model_args.model_name_or_path,
+            config)#, add_pooling_layer=self.add_cls_pooling_layer)
+
+        # Classifier head
+        # self.pooler = PoolingForSequenceClassificationHead(
+        #     hidden_size=config.hidden_size,
+        #     hidden_dropout_prob=config.hidden_dropout_prob,
+        #     add_layer_norm=add_layer_norm,
+        #     pooling_mode=pooling_mode,
+        # )
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels) if config.num_labels > 0 else nn.Identity()
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def forward(
+        self,
+        pixel_values=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        interpolate_pos_encoding=None,
+        return_dict=None,
+    ):
+        r"""
+        labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
+            Labels for computing the image classification/regression loss. Indices should be in `[0, ...,
+            config.num_labels - 1]`. If `config.num_labels == 1` a regression loss is computed (Mean-Square loss), If
+            `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+        """
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.vit(
+            pixel_values,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
+            return_dict=return_dict,
+        )
+
+        if self.add_cls_pooling_layer:
+            sequence_output = outputs[1]
+        else:
+            # When not using CLS pooling mode, discard it
+            sequence_output = outputs[0][:, 1:, :]
+
+        //logits = self.pooler(sequence_output)
+        logits = self.classifier(logits)
+
+        loss = None
+        if labels is not None:
+            if self.config.problem_type is None:
+                if self.num_labels == 1:
+                    self.config.problem_type = "regression"
+                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                    self.config.problem_type = "single_label_classification"
+                else:
+                    self.config.problem_type = "multi_label_classification"
+
+            if self.config.problem_type == "regression":
+                loss_fct = MSELoss()
+                if self.num_labels == 1:
+                    loss = loss_fct(logits.squeeze(), labels.squeeze())
+                else:
+                    loss = loss_fct(logits, labels)
+            elif self.config.problem_type == "single_label_classification":
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            elif self.config.problem_type == "multi_label_classification":
+                loss_fct = BCEWithLogitsLoss()
+                loss = loss_fct(logits, labels)
+        if not return_dict:
+            output = (logits,) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
+
+        return SequenceClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states
+            # attentions=outputs.attentions,
         )
 

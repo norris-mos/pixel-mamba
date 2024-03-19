@@ -289,11 +289,11 @@ def get_model_and_config(model_args: argparse.Namespace, num_labels: int, task_n
             **config_kwargs,
         )
     elif config.model_type in ["vit_mae", "pixel"]:
-        model = PIXELForSequenceClassification.from_pretrained(
+        model = PIXELForSequenceClassification(
             model_args.model_name_or_path,
             config=config,
             pooling_mode=model_args.pooling_mode,
-            add_layer_norm=model_args.pooler_add_layer_norm,
+            #add_layer_norm=model_args.pooler_add_layer_norm,
             **config_kwargs,
         )
     else:

@@ -392,7 +392,7 @@ def main(config_dict: Dict[str, Any] = None):
     # Reinitialize embeddings
     model.vit.embeddings = PIXBAEmbeddings(model.config)
     model.decoder.decoder_pos_embed = torch.nn.Parameter(
-        torch.zeros((1, text_renderer.max_seq_length + 1, 768)), requires_grad=False
+        torch.zeros((1, text_renderer.max_seq_length + 1, model.config.d_model_decoder)), requires_grad=False
     )
     decoder_pos_embed = get_2d_sincos_pos_embed(
         model.decoder.decoder_pos_embed.shape[-1], int(text_renderer.max_seq_length ** 0.5), add_cls_token=True

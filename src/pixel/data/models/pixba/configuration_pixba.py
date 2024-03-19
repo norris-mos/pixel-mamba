@@ -91,6 +91,7 @@ class PIXBAConfig(PretrainedConfig):
         d_model = 768,
         num_encoder_layers = 4,
         num_decoder_layers=2,
+        d_model_decoder = 512,
         vocab_size=50277,
         ssm_cfg = {},#field(default_factory=dict),
         rms_norm=True,
@@ -139,6 +140,7 @@ class PIXBAConfig(PretrainedConfig):
         self.d_model=d_model
         self.num_encoder_layers=num_encoder_layers
         self.num_decoder_layers=num_decoder_layers
+        self.d_model_decoder = d_model_decoder
         self.vocab_size= vocab_size
         self.ssm_cfg= ssm_cfg
         self.rms_norm = rms_norm
