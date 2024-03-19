@@ -36,7 +36,7 @@ from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_
 # from biaffine import Biaffine
 # from pooling import PoolingForSequenceClassificationHead, PoolingMode
 # from vit import ViTModel
-#from ..pixel.configuration_pixel import PIXELConfig
+from .configuration_pixba import PIXBAConfig
 
 # from mamba_ssm import Mamba
 from pixba.ops.selective_scan_interface import selective_scan_fn, mamba_inner_fn
@@ -619,7 +619,7 @@ class PIXBABlock(nn.Module):
     
 class PIXBABlockWrapper(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=RMSNorm, fused_add_norm=False, residual_in_fp32=True
+        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=True
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -641,7 +641,7 @@ class PIXBABlockWrapper(nn.Module):
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
-                self.norm, (RMSNorm)
+                self.norm, (nn.LayerNorm, RMSNorm)
             ), "Only LayerNorm and RMSNorm are supported for fused_add_norm"
 
     def forward(
@@ -703,13 +703,13 @@ class PIXBAEncoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=RMSNorm,  # or RMSNorm, depending on your preference
-                fused_add_norm=True,  # Set based on whether you want to fuse add and norm
+                norm_cls=nn.LayerNorm,  # or RMSNorm, depending on your preference
+                fused_add_norm=False,  # Set based on whether you want to fuse add and norm
                 residual_in_fp32=True  # Set based on your precision requirements
             )
             for i in range(config.num_encoder_layers)
         ])
-        self.norm = RMSNorm(config.d_model)
+        self.norm = nn.LayerNorm(config.d_model)
         self.apply(partial(_mamba_init_weights, n_layer=config.num_encoder_layers))
 
     def forward(self, src, inference_params=None):
@@ -759,13 +759,13 @@ class PIXBADecoder(nn.Module):
                     device=config.device,
                     dtype=config.dtype,
                 ),
-                norm_cls=RMSNorm,  # or RMSNorm, based on preference
-                fused_add_norm=True,  # Adjust based on need
+                norm_cls=nn.LayerNorm,  # or RMSNorm, based on preference
+                fused_add_norm=False,  # Adjust based on need
                 residual_in_fp32=True  # Adjust based on precision requirements
             )
             for i in range(config.num_decoder_layers)
         ])
-        self.norm = RMSNorm(config.d_model)
+        self.norm = nn.LayerNorm(config.d_model)
         self.head = nn.Identity()
         self.apply(partial(_mamba_init_weights, n_layer=config.num_decoder_layers)) # ToDo: this might initialize decoder_embed, check if that's the case and is it fine to initlialize. I think is should be fine as it's initializing with zeros.
         self.initialize_weights(config.num_patches)
@@ -802,11 +802,39 @@ class PIXBADecoder(nn.Module):
 
 
 
+class PIXELPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = PIXBAConfig
+    base_model_prefix = "vit"
+    main_input_name = "pixel_values"
+    supports_gradient_checkpointing = True
+
+    # Copied from transformers.models.vit.modeling_vit.ViTPreTrainedModel._init_weights
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, (nn.Linear, nn.Conv2d)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    def _set_gradient_checkpointing(self, module, value=False):
+        if isinstance(module, PIXELEncoder):
+            module.gradient_checkpointing = value
+
 
 #TODO FIX MODEL to corresopond to Enocoder & Decoder
-class PIXBAModel(nn.Module):
+class PIXBAModel(PIXELPreTrainedModel):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
         self.config = config
 
         self.embeddings = PIXBAEmbeddings(config)
@@ -906,9 +934,9 @@ class PIXBAModelOutput(ModelOutput):
     ids_restore: torch.LongTensor = None
     #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
-class PIXBAForPreTraining(nn.Module):
+class PIXBAForPreTraining(PIXELPreTrainedModel):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
         self.config = config
 
         self.vit = PIXBAModel(config)

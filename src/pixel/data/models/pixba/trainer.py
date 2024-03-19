@@ -16,7 +16,7 @@ from transformers.trainer_utils import (
 from transformers.utils import logging
 
 from utils.optimization import get_cosine_schedule_to_min_lr_with_warmup
-from utils.training import debug_log_inputs
+from utils.training import debug_log_inputs, debug_log_outputs
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -32,6 +32,7 @@ class PIXBATrainer(Trainer):
     """
 
     def compute_loss(self, model, inputs, return_outputs=False):
+        #print("Computing loss")
         """
         How the loss is computed by Trainer. By default, all models return the loss in the first element.
 
@@ -46,6 +47,7 @@ class PIXBATrainer(Trainer):
         # debug_log_inputs(inputs)
 
         outputs = model(**inputs)
+        debug_log_outputs(outputs)
 
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.

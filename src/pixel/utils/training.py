@@ -6,7 +6,7 @@ import torch
 import wandb
 from transformers import TrainingArguments
 
-from .misc import format_img, format_mask, mark_answer
+from .misc import format_img, format_img2, format_mask, mark_answer
 
 
 class Modality(Enum):
@@ -61,3 +61,18 @@ def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
             for s, e in zip(inputs["start_positions"], inputs["end_positions"])
         ]
         wandb.log({"answer_spans": marked_answers})
+
+def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
+    wandb.init(reinit=False)
+   # print("--outputs---------------",outputs["logits"].shape)
+    images = wandb.Image(format_img2(outputs["logits"][0]))
+    #images = [wandb.Image(i) for i in format_img2(outputs["logits"])]
+    wandb.log({
+        "output_images":images
+    })
+
+def format_img3(x: torch.Tensor):
+    """
+    Wraps an image tensor into square, e.g. from 16x8464 to 368x368 and clips it for proper display
+    """
+    return clip(unpatchify(x).squeeze())

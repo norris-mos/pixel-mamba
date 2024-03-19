@@ -89,8 +89,8 @@ class PIXBAConfig(PretrainedConfig):
         #Mamba configs 
 #############################
         d_model = 768,
-        num_encoder_layers = 24,
-        num_decoder_layers=7,
+        num_encoder_layers = 2,
+        num_decoder_layers=1,
         vocab_size=50277,
         ssm_cfg = {},#field(default_factory=dict),
         rms_norm=True,

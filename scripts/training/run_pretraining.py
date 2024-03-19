@@ -208,6 +208,9 @@ class CustomTrainingArguments(TrainingArguments):
     base_learning_rate: float = field(
         default=1.5e-4, metadata={"help": "Base learning rate: absolute_lr = base_lr * total_batch_size / 256."}
     )
+   # label_names: str[] = field(
+    #    default=["labels"], metadata={"help": "nothing"}
+    #)
 
 
 def collate_fn(examples):
@@ -232,6 +235,8 @@ def main(config_dict: Dict[str, Any] = None):
             model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     else:
         model_args, data_args, training_args = parser.parse_dict(config_dict)
+    training_args.label_names = ["labels"]
+    print(training_args)
     print("Initializing loggger")
     # Setup logging
     log_level = logging.INFO

@@ -113,6 +113,11 @@ def format_img(x: torch.Tensor):
     """
     return clip(unpatchify(patchify(x)).squeeze())
 
+def format_img2(x: torch.Tensor):
+    """
+    Wraps an image tensor into square, e.g. from 16x8464 to 368x368 and clips it for proper display
+    """
+    return clip(unpatchify(x).squeeze())
 
 def mark_answer(start_pos: int, end_pos: int, seq_length):
     n = (end_pos + 1) - start_pos
