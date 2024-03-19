@@ -934,7 +934,7 @@ class PIXBAModelOutput(ModelOutput):
     last_hidden_state: torch.FloatTensor = None
     mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
-    embedding_output = None
+    embedding_output: torch.FloatTensor = None
     #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 class PIXBAForPreTraining(PIXELPreTrainedModel):
