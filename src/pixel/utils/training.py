@@ -57,7 +57,7 @@ def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
         #patch_masks = [wandb.Image(format_mask(pm)) for pm in inputs["patch_mask"]]
         temp_patch_masks = format_mask(inputs["patch_mask"][0])
         patch_masks = wandb.Image(temp_patch_masks)
-        wandb.log({"patch_masks": patch_masks})#, "images":wandb.Image(nonWandDbImages*temp_patch_masks)})
+        wandb.log({"patch_masks": patch_masks, "input": images})#, "images":wandb.Image(nonWandDbImages*temp_patch_masks)})
 
     if "start_positions" in inputs and "end_positions" in inputs:
         marked_answers = [
