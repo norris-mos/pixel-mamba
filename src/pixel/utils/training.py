@@ -41,19 +41,23 @@ def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
 
     wandb.init(reinit=False)
 
-    images = [wandb.Image(format_img(im)) for im in inputs["pixel_values"]]
-    attention_masks = [wandb.Image(format_mask(am)) for am in inputs["attention_mask"]]
-    seq_length = len(inputs["attention_mask"][0])
-    wandb.log(
-        {
-            "images": images,
-            "attention_masks": attention_masks,
-        }
-    )
+    #images = [wandb.Image(format_img(im)) for im in inputs["pixel_values"]]
+    nonWandDbImages = format_img(inputs["pixel_values"][0])
+    images = wandb.Image(nonWandDbImages)
+    #attention_masks = [wandb.Image(format_mask(am)) for am in inputs["attention_mask"]]
+    #seq_length = len(inputs["attention_mask"][0])
+    #wandb.log(
+    #    {
+    #        "images": images,
+    #        "attention_masks": attention_masks,
+    #    }
+    #)
 
     if "patch_mask" in inputs:
-        patch_masks = [wandb.Image(format_mask(pm)) for pm in inputs["patch_mask"]]
-        wandb.log({"patch_masks": patch_masks})
+        #patch_masks = [wandb.Image(format_mask(pm)) for pm in inputs["patch_mask"]]
+        temp_patch_masks = format_mask(inputs["patch_mask"][0])
+        patch_masks = wandb.Image(temp_patch_masks)
+        wandb.log({"patch_masks": patch_masks})#, "images":wandb.Image(nonWandDbImages*temp_patch_masks)})
 
     if "start_positions" in inputs and "end_positions" in inputs:
         marked_answers = [
@@ -66,12 +70,14 @@ def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
     wandb.init(reinit=False)
    # print("--outputs---------------",outputs["logits"].shape)
     images = wandb.Image(format_img2(outputs["logits"][0]))
-    masked_images = wandb.Image(format_img2(outputs["embedding_output"][0]))
+   # print(outputs["embedding_output"].shape)
+    #masked_images = wandb.Image(format_img2(outputs["embedding_output"][0,1:]))
     #images = [wandb.Image(i) for i in format_img2(outputs["logits"])]
     wandb.log({
-        "output_images":images,
-        "masked_images":masked_images
+        "output_images":images
     })
+       # "masked_images":masked_images
+    #})
     
 
 def format_img3(x: torch.Tensor):

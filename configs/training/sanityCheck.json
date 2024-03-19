@@ -33,5 +33,8 @@
     "hub_private_repo": true,
     "text_renderer_name_or_path": "configs/renderers/noto_renderer",
     "output_dir": "outputs/",
-    "dataset_caches": "/exports/eddie/scratch/s2581395/pixel-mamba/cache"
+    "dataset_caches": "/exports/eddie/scratch/s2581395/pixel-mamba/cache",
+    "span_masking": true,
+    "masking_max_span_length": 6,
+    "masking_cumulative_span_weights": "0.2,0.2,0.2,0.2,0.1,0.1"
 }
