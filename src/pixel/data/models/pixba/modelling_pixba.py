@@ -34,7 +34,8 @@ from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_
 # from pixel.utils import DependencyParsingModelOutput, format_mask
 
 # from biaffine import Biaffine
-from models.pooling import PoolingForSequenceClassificationHead, PoolingMode
+#from pooling import PoolingForSequenceClassificationHead, PoolingMode
+from pooling import PoolingMode
 # from vit import ViTModel
 from .configuration_pixba import PIXBAConfig
 
@@ -1048,8 +1049,8 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
             #attentions=outputs.attentions,
         )
 
-class PIXELForSequenceClassification(nn.Module):
-    def __init__(self, model_args, config, pooling_mode: PoolingMode = PoolingMode.MEAN)#, add_layer_norm: bool = True):
+class PIXBAForSequenceClassification(nn.Module):
+    def __init__(self, model_args, config, pooling_mode: PoolingMode = PoolingMode.MEAN):#, add_layer_norm: bool = True):
         super().__init__(config)
 
         if not hasattr(self.config, "interpolate_pos_encoding"):
@@ -1105,7 +1106,7 @@ class PIXELForSequenceClassification(nn.Module):
             # When not using CLS pooling mode, discard it
             sequence_output = outputs[0][:, 1:, :]
 
-        //logits = self.pooler(sequence_output)
+        #logits = self.pooler(sequence_output)
         logits = self.classifier(logits)
 
         loss = None
