@@ -903,7 +903,7 @@ class PIXBAForPreTrainingOutput(ModelOutput):
     mask: torch.LongTensor = None
     # attention_mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
-    embedding_output=None
+    embedding_output: torch.FloatTensor = None
     # hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
