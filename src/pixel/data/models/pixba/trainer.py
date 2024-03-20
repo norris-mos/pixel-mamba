@@ -16,7 +16,7 @@ from transformers.trainer_utils import (
 from transformers.utils import logging
 
 from utils.optimization import get_cosine_schedule_to_min_lr_with_warmup
-from utils.training import debug_log_inputs, debug_log_outputs
+from utils.training import debug_log_inputs, debug_log_outputs, fineTuning_log_inputs, fineTuning_log_outputs
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -51,10 +51,10 @@ class PIXBATrainer(Trainer):
         #debug_log_inputs(inputs)
 
         outputs = model(**inputs)
-        # self.log_step_counter += 1
-        # if self.log_step_counter % self.log_frequency==0:
-        #     debug_log_inputs(inputs)            
-        #     debug_log_outputs(outputs)
+        self.log_step_counter += 1
+        if self.log_step_counter % self.log_frequency==0:
+            debug_log_inputs(inputs)            
+            debug_log_outputs(outputs)
 
 
         # Save past state if it exists
@@ -353,3 +353,49 @@ class PIXBATrainerForQuestionAnswering(PIXBATrainer):
                 metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
 
         return PredictionOutput(predictions=predictions.predictions, label_ids=predictions.label_ids, metrics=metrics)
+
+class PIXBATrainerForFineTuning(Trainer):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.log_step_counter=0
+        self.log_frequency = 500
+    """
+    Same as a regular Trainer but with the option to visualize inputs before they are fed into the model
+    for debugging purposes
+    """
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        #print("Computing loss")
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        if self.label_smoother is not None and "labels" in inputs:
+            labels = inputs.pop("labels")
+        else:
+            labels = None
+
+        # Uncomment this to visualize inputs
+        #debug_log_inputs(inputs)
+
+        outputs = model(**inputs)
+        self.log_step_counter += 1
+        if self.log_step_counter % self.log_frequency==0:
+            fineTuning_log_inputs(inputs)            
+            fineTuning_log_outputs(outputs)
+
+
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if labels is not None:
+            loss = self.label_smoother(outputs, labels)
+        else:
+            # We don't use .loss here since the model may return tuples instead of ModelOutput.
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+        return (loss, outputs) if return_outputs else loss
+

@@ -43,7 +43,7 @@ from utils.training import Modality, PIXELTrainingArguments
 from utils.transforms import get_transforms
 from utils import glue_strip_spaces, log_sequence_classification_predictions, resize_model_embeddings
 from pixba.modelling_pixba import PIXBAForSequenceClassification
-from pixba.trainer import PIXBATrainer
+from pixba.trainer import PIXBATrainerForFineTuning
 from data.rendering import PyGameTextRenderer
 from pooling import PoolingMode
 
@@ -619,7 +619,7 @@ def main():
             return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
     # Initialize our Trainer
-    trainer = PIXBATrainer(
+    trainer = PIXBATrainerForFineTuning(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

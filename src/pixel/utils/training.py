@@ -68,7 +68,6 @@ def debug_log_inputs(inputs: Dict[str, torch.Tensor]):
 
 def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
     wandb.init(reinit=False)
-    print("--outputs---------------",outputs["logits"].shape)
     images = wandb.Image(format_img2(outputs["logits"][0]))
    # print(outputs["embedding_output"].shape)
     #masked_images = wandb.Image(format_img2(outputs["embedding_output"][0,1:]))
@@ -78,6 +77,30 @@ def debug_log_outputs(outputs: Dict[str, torch.Tensor]):
     })
        # "masked_images":masked_images
     #})
+
+def fineTuning_log_inputs(inputs: Dict[str, torch.Tensor]):
+    """
+    Logs inputs as square images to wandb
+    Only works when training with Modality.IMAGE
+    """
+
+    wandb.init(reinit=False)
+
+    nonWandDbImages = format_img(inputs["pixel_values"][0])
+    images = wandb.Image(nonWandDbImages)
+    wandb.log(
+       {
+           "images": images
+       }
+    )
+
+
+def fineTuning_log_outputs(outputs: Dict[str, torch.Tensor]):
+    wandb.init(reinit=False)
+    wandb.log({
+        "pred":outputs["logits"][0]
+    })
+
     
 
 def format_img3(x: torch.Tensor):
