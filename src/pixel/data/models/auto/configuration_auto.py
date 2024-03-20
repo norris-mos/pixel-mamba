@@ -33,7 +33,7 @@ logger = logging.get_logger(__name__)
 CONFIG_MAPPING_NAMES = OrderedDict(
     [
         # Add configs here
-        ("pixel", "PIXELConfig"),
+        ("pixel", "PIXBAConfig"),
         ("maskformer", "MaskFormerConfig"),
         ("poolformer", "PoolFormerConfig"),
         ("convnext", "ConvNextConfig"),
@@ -222,7 +222,7 @@ CONFIG_ARCHIVE_MAP_MAPPING_NAMES = OrderedDict(
 MODEL_NAMES_MAPPING = OrderedDict(
     [
         # Add full (and cased) model names here
-        ("pixel", "Pixel"),
+        ("pixel", "Pixba"),
         ("maskformer", "MaskFormer"),
         ("poolformer", "PoolFormer"),
         ("convnext", "ConvNext"),
@@ -382,7 +382,7 @@ class _LazyConfigMapping(OrderedDict):
             try:
                 self._modules[module_name] = importlib.import_module(f".{module_name}", "transformers.models")
             except ModuleNotFoundError:
-                self._modules[module_name] = importlib.import_module(f".{module_name}", "pixel.models")
+                self._modules[module_name] = importlib.import_module(module_name)
         return getattr(self._modules[module_name], value)
 
     def keys(self):
