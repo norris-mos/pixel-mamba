@@ -1091,7 +1091,7 @@ class PIXBAForSequenceClassification(nn.Module):
             `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
+        print("Input size - ", pixel_values.shape)
         outputs = self.vit(
             pixel_values,
             #output_attentions=output_attentions,
@@ -1099,16 +1099,16 @@ class PIXBAForSequenceClassification(nn.Module):
             #interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
             return_dict=return_dict,
         )
-
+        print("output size - ", outputs[0].shape, outputs[1].shape)
         if self.add_cls_pooling_layer:
             sequence_output = outputs[1]
         else:
             # When not using CLS pooling mode, discard it
             sequence_output = outputs[0][:, 1:, :]
-
+        print("sequence_output size - ", sequence_output.shape)
         #logits = self.pooler(sequence_output)
         logits = self.classifier(sequence_output)
-
+        print("logits size - ", logits.shape, "classifier - ", self.config.hidden_size, ",", self.config.num_labels)
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
@@ -1127,6 +1127,7 @@ class PIXBAForSequenceClassification(nn.Module):
                     loss = loss_fct(logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
+                print(logits.view(-1, self.num_labels).shape, labels.view(-1).shape)
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
