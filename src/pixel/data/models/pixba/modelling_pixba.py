@@ -1107,7 +1107,7 @@ class PIXBAForSequenceClassification(nn.Module):
             sequence_output = outputs[0][:, 1:, :]
 
         #logits = self.pooler(sequence_output)
-        logits = self.classifier(logits)
+        logits = self.classifier(sequence_output)
 
         loss = None
         if labels is not None:
