@@ -35,7 +35,7 @@ from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_
 
 # from biaffine import Biaffine
 #from pooling import PoolingForSequenceClassificationHead, PoolingMode
-from pooling import PoolingMode
+from pooling import PoolingForSequenceClassificationHead, PoolingMode
 # from vit import ViTModel
 from .configuration_pixba import PIXBAConfig
 
@@ -1050,7 +1050,7 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
         )
 
 class PIXBAForSequenceClassification(nn.Module):
-    def __init__(self, model_name_or_path, config, pooling_mode: PoolingMode = PoolingMode.MEAN, config_kwargs={}):#, add_layer_norm: bool = True):
+    def __init__(self, model_name_or_path, config, pooling_mode: PoolingMode = PoolingMode.MEAN, config_kwargs={}, add_layer_norm: bool = True):
         super().__init__()
         self.config = config
         if not hasattr(self.config, "interpolate_pos_encoding"):
@@ -1064,12 +1064,12 @@ class PIXBAForSequenceClassification(nn.Module):
             config=config)#, **config_kwargs)#, add_pooling_layer=self.add_cls_pooling_layer)
 
         # Classifier head
-        # self.pooler = PoolingForSequenceClassificationHead(
-        #     hidden_size=config.hidden_size,
-        #     hidden_dropout_prob=config.hidden_dropout_prob,
-        #     add_layer_norm=add_layer_norm,
-        #     pooling_mode=pooling_mode,
-        # )
+        self.pooler = PoolingForSequenceClassificationHead(
+            hidden_size=config.hidden_size,
+            hidden_dropout_prob=config.hidden_dropout_prob,
+            add_layer_norm=add_layer_norm,
+            pooling_mode=pooling_mode,
+        )
         self.classifier = nn.Linear(config.hidden_size, config.num_labels) if config.num_labels > 0 else nn.Identity()
 
         # Initialize weights and apply final processing
@@ -1091,7 +1091,7 @@ class PIXBAForSequenceClassification(nn.Module):
             `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        print("Input size - ", pixel_values.shape)
+        # print("Input size - ", pixel_values.shape)
         outputs = self.vit(
             pixel_values,
             #output_attentions=output_attentions,
@@ -1099,16 +1099,17 @@ class PIXBAForSequenceClassification(nn.Module):
             #interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
             return_dict=return_dict,
         )
-        print("output size - ", outputs[0].shape, outputs[1].shape)
+        # print("output size - ", outputs[0].shape, outputs[1].shape)
         if self.add_cls_pooling_layer:
             sequence_output = outputs[1]
         else:
             # When not using CLS pooling mode, discard it
             sequence_output = outputs[0][:, 1:, :]
-        print("sequence_output size - ", sequence_output.shape)
-        #logits = self.pooler(sequence_output)
-        logits = self.classifier(sequence_output)
-        print("logits size - ", logits.shape, "classifier - ", self.config.hidden_size, ",", self.config.num_labels)
+        # print("sequence_output size - ", sequence_output.shape)
+        logits = self.pooler(sequence_output)
+        # print("pooler output size - ", logits.shape)
+        logits = self.classifier(logits)
+        # print("logits size - ", logits.shape)
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
@@ -1127,7 +1128,7 @@ class PIXBAForSequenceClassification(nn.Module):
                     loss = loss_fct(logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                print(logits.view(-1, self.num_labels).shape, labels.view(-1).shape)
+                # print(logits.view(-1, self.num_labels).shape, labels.view(-1).shape)
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
@@ -1139,7 +1140,7 @@ class PIXBAForSequenceClassification(nn.Module):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=outputs.hidden_states
+            #hidden_states=outputs.hidden_states
             # attentions=outputs.attentions,
         )
 

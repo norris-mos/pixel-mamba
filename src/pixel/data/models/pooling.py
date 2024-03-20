@@ -120,54 +120,54 @@ class Pooling(nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        pooling_mode_cls_token: bool = False,
-        pooling_mode_max_tokens: bool = False,
+        # pooling_mode_cls_token: bool = False,
+        # pooling_mode_max_tokens: bool = False,
         pooling_mode_mean_tokens: bool = True,
-        pooling_mode_mean_sqrt_len_tokens: bool = False,
-        pooling_mode_pma_tokens: bool = False,
+        # pooling_mode_mean_sqrt_len_tokens: bool = False,
+        # pooling_mode_pma_tokens: bool = False,
         pooling_mode: Optional[str] = None,
     ):
         super(Pooling, self).__init__()
 
         self.config_keys = [
             "hidden_states_dim",
-            "pooling_mode_cls_token",
+            # "pooling_mode_cls_token",
             "pooling_mode_mean_tokens",
-            "pooling_mode_max_tokens",
-            "pooling_mode_mean_sqrt_len_tokens",
-            "pooling_mode_pma_tokens",
+            # "pooling_mode_max_tokens",
+            # "pooling_mode_mean_sqrt_len_tokens",
+            # "pooling_mode_pma_tokens",
         ]
 
         # Set pooling mode by string
         if pooling_mode is not None:
             pooling_mode = pooling_mode.lower()
             assert pooling_mode in {"mean", "max", "cls"} or pooling_mode.startswith("pma")
-            pooling_mode_cls_token = pooling_mode == "cls"
-            pooling_mode_max_tokens = pooling_mode == "max"
+            # pooling_mode_cls_token = pooling_mode == "cls"
+            # pooling_mode_max_tokens = pooling_mode == "max"
             pooling_mode_mean_tokens = pooling_mode == "mean"
-            pooling_mode_pma_tokens = pooling_mode.startswith("pma")
+            # pooling_mode_pma_tokens = pooling_mode.startswith("pma")
 
         self.hidden_size = hidden_size
-        self.pooling_mode_cls_token = pooling_mode_cls_token
+        # self.pooling_mode_cls_token = pooling_mode_cls_token
         self.pooling_mode_mean_tokens = pooling_mode_mean_tokens
-        self.pooling_mode_max_tokens = pooling_mode_max_tokens
-        self.pooling_mode_mean_sqrt_len_tokens = pooling_mode_mean_sqrt_len_tokens
-        self.pooling_mode_pma_tokens = pooling_mode_pma_tokens
+        # self.pooling_mode_max_tokens = pooling_mode_max_tokens
+        # self.pooling_mode_mean_sqrt_len_tokens = pooling_mode_mean_sqrt_len_tokens
+        # self.pooling_mode_pma_tokens = pooling_mode_pma_tokens
 
         pooling_mode_multiplier = sum(
             [
-                pooling_mode_cls_token,
-                pooling_mode_max_tokens,
+                # pooling_mode_cls_token,
+                # pooling_mode_max_tokens,
                 pooling_mode_mean_tokens,
-                pooling_mode_mean_sqrt_len_tokens,
-                pooling_mode_pma_tokens,
+                # pooling_mode_mean_sqrt_len_tokens,
+                # pooling_mode_pma_tokens,
             ]
         )
         self.pooling_output_dimension = pooling_mode_multiplier * hidden_size
 
-        if pooling_mode_pma_tokens:
-            num_heads = int(pooling_mode.replace("pma", ""))
-            self.pooler = PMA(hidden_size, num_heads, num_seeds=1, ln=False)
+        # if pooling_mode_pma_tokens:
+        #     num_heads = int(pooling_mode.replace("pma", ""))
+        #     self.pooler = PMA(hidden_size, num_heads, num_seeds=1, ln=False)
 
     def __repr__(self):
         return f"Pooling({self.config_dict})"
@@ -177,16 +177,16 @@ class Pooling(nn.Module):
         Returns the pooling mode as string
         """
         modes = []
-        if self.pooling_mode_cls_token:
-            modes.append("cls")
+        # if self.pooling_mode_cls_token:
+        #     modes.append("cls")
         if self.pooling_mode_mean_tokens:
             modes.append("mean")
-        if self.pooling_mode_max_tokens:
-            modes.append("max")
-        if self.pooling_mode_mean_sqrt_len_tokens:
-            modes.append("mean_sqrt_len_tokens")
-        if self.pooling_mode_pma_tokens:
-            modes.append("pma")
+        # if self.pooling_mode_max_tokens:
+        #     modes.append("max")
+        # if self.pooling_mode_mean_sqrt_len_tokens:
+        #     modes.append("mean_sqrt_len_tokens")
+        # if self.pooling_mode_pma_tokens:
+        #     modes.append("pma")
 
         return "+".join(modes)
 
@@ -194,24 +194,27 @@ class Pooling(nn.Module):
 
         # Pooling strategy
         output_vectors = []
-        if self.pooling_mode_cls_token:
-            cls_token = hidden_states[:, 0, :]
-            output_vectors.append(cls_token)
+        # if self.pooling_mode_cls_token:
+        #     cls_token = hidden_states[:, 0, :]
+        #     output_vectors.append(cls_token)
         # if self.pooling_mode_max_tokens:
         #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
         #     hidden_states[input_mask_expanded == 0] = -1e9  # Set padding tokens to large negative value
         #     max_over_time = torch.max(hidden_states, 1)[0]
         #     output_vectors.append(max_over_time)
-        # if self.pooling_mode_mean_tokens or self.pooling_mode_mean_sqrt_len_tokens:
-        #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
-        #     sum_embeddings = torch.sum(hidden_states * input_mask_expanded, 1)
-        #     sum_mask = input_mask_expanded.sum(1)
-        #     sum_mask = torch.clamp(sum_mask, min=1e-9)
+        if self.pooling_mode_mean_tokens or self.pooling_mode_mean_sqrt_len_tokens:
+            # input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
+            # sum_embeddings = torch.sum(hidden_states * input_mask_expanded, 1)
+            sum_embeddings = torch.sum(hidden_states, 1)
+            # sum_mask = input_mask_expanded.sum(1)
+            # sum_mask = torch.clamp(sum_mask, min=1e-9)
 
-        #     if self.pooling_mode_mean_tokens:
-        #         output_vectors.append(sum_embeddings / sum_mask)
-        #     if self.pooling_mode_mean_sqrt_len_tokens:
-        #         output_vectors.append(sum_embeddings / torch.sqrt(sum_mask))
+            if self.pooling_mode_mean_tokens:
+                # output_vectors.append(sum_embeddings / sum_mask)
+                output_vectors.append(sum_embeddings)
+
+            # if self.pooling_mode_mean_sqrt_len_tokens:
+            #     output_vectors.append(sum_embeddings / torch.sqrt(sum_mask))
         # if self.pooling_mode_pma_tokens:
         #     # print(attention_mask)
         #     input_mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size()).float()
@@ -267,7 +270,6 @@ class PoolingForSequenceClassificationHead(nn.Module):
         pooling_mode: PoolingMode = PoolingMode.MEAN,
     ):
         super().__init__()
-
         self.add_layer_norm = add_layer_norm
         self.pooling_mode = pooling_mode
 
@@ -276,27 +278,26 @@ class PoolingForSequenceClassificationHead(nn.Module):
         self.ln = nn.LayerNorm(hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(hidden_dropout_prob)
 
-        # if pooling_mode == PoolingMode.MEAN:
-        #     self.pooling = Pooling(hidden_size)
+        if pooling_mode == PoolingMode.MEAN:
+            self.pooling = Pooling(hidden_size)
         # elif pooling_mode == PoolingMode.MAX:
         #     self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode_max_tokens=True)
-        if pooling_mode == PoolingMode.CLS:
+        elif pooling_mode == PoolingMode.CLS:
             pass
         # elif pooling_mode == PoolingMode.PMA:
         #     self.pooling = Pooling(hidden_size, pooling_mode_mean_tokens=False, pooling_mode=pooling_mode.mode)
         else:
-            raise ValueError(f"Pooling mode {pooling_mode} not supported.")
+            raise ValueError(f"Pooling mode {pooling_mode} not supported. {pooling_mode == PoolingMode.MEAN}")
 
     def forward(self, hidden_states: torch.Tensor):#, attention_mask: torch.Tensor):
 
         if self.pooling_mode == PoolingMode.CLS:
             return hidden_states
         else:
-            raise("PoolingForSequenceClassificationHead was not called for CLS")
-            # if self.pooling_mode != PoolingMode.PMA:
-            #     hidden_states = self.activation(self.linear(hidden_states))
-            # if self.add_layer_norm:
-            #     hidden_states = self.ln(hidden_states)
+            if self.pooling_mode != PoolingMode.PMA:
+                hidden_states = self.activation(self.linear(hidden_states))
+            if self.add_layer_norm:
+                hidden_states = self.ln(hidden_states)
 
-            # hidden_states = self.dropout(hidden_states)
-            # return self.pooling(hidden_states=hidden_states, attention_mask=attention_mask)
+            hidden_states = self.dropout(hidden_states)
+            return self.pooling(hidden_states=hidden_states)#, attention_mask=attention_mask)

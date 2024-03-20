@@ -51,10 +51,10 @@ class PIXBATrainer(Trainer):
         #debug_log_inputs(inputs)
 
         outputs = model(**inputs)
-        self.log_step_counter += 1
-        if self.log_step_counter % self.log_frequency==0:
-            debug_log_inputs(inputs)            
-            debug_log_outputs(outputs)
+        # self.log_step_counter += 1
+        # if self.log_step_counter % self.log_frequency==0:
+        #     debug_log_inputs(inputs)            
+        #     debug_log_outputs(outputs)
 
 
         # Save past state if it exists

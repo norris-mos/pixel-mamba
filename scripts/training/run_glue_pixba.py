@@ -45,6 +45,7 @@ from utils import glue_strip_spaces, log_sequence_classification_predictions, re
 from pixba.modelling_pixba import PIXBAForSequenceClassification
 from pixba.trainer import PIXBATrainer
 from data.rendering import PyGameTextRenderer
+from pooling import PoolingMode
 
 from transformers import (
     AutoTokenizer,
@@ -75,26 +76,6 @@ task_to_keys = {
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
 }
-
-class PoolingMode(Enum):
-    CLS = "cls"
-    MEAN = "mean"
-    MAX = "max"
-    PMA = "pma"
-
-    @classmethod
-    def from_string(cls, mode: str):
-        cls.mode = mode
-        if mode == "cls":
-            return PoolingMode.CLS
-        elif mode == "mean":
-            return PoolingMode.MEAN
-        elif mode == "max":
-            return PoolingMode.MAX
-        elif mode.startswith("pma"):
-            return PoolingMode.PMA
-        else:
-            raise ValueError(f"Pooling mode {mode} not supported. Please choose from {[e.value for e in cls]}")
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +284,7 @@ def get_model_and_config(model_args: argparse.Namespace, num_labels: int, task_n
     logger.info(f"Using dropout with probability {model_args.dropout_prob}")
 
     if config.model_type in ["vit_mae", "pixel"]:
-        print(config_kwargs)
+        print("\n\n\n\n\nKargs : ",config_kwargs, "\n\n\n\n\n", model_args.pooling_mode)
         model = PIXBAForSequenceClassification(
             model_args.model_name_or_path,
             config=config,
@@ -694,7 +675,7 @@ def main():
             logger.info(f"Task name is {task}")
             outputs = trainer.predict(test_dataset=eval_dataset, metric_key_prefix=f"eval_{task}")
             metrics = outputs.metrics
-
+            logger.info(f"Finished: Task name is {task} - output at - {training_args.output_dir}")
             # Log predictions
             if training_args.log_predictions:
                 log_sequence_classification_predictions(
@@ -707,15 +688,15 @@ def main():
                     modality=modality,
                     prefix=task,
                 )
-
+            logger.info(f"Finished: log_sequence_classification_predictions {training_args.output_dir}")
             max_eval_samples = (
                 data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
+            logger.info(f"Logging and pushing to wandb {task}")
             trainer.log_metrics(f"eval_{task}", metrics)
             trainer.save_metrics(f"eval_{task}", metrics)
-
+            logger.info(f"Finished: Logging and pushing to wandb {task}")
     if training_args.do_predict:
         logger.info("*** Predict ***")
 
