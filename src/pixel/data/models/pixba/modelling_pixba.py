@@ -832,7 +832,7 @@ class PIXELPreTrainedModel(PreTrainedModel):
             module.weight.data.fill_(1.0)
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, PIXELEncoder):
+        if isinstance(module, PIXBAEncoder):
             module.gradient_checkpointing = value
 
 
@@ -1049,9 +1049,9 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
             #attentions=outputs.attentions,
         )
 
-class PIXBAForSequenceClassification(nn.Module):
+class PIXBAForSequenceClassification(PIXELPreTrainedModel):
     def __init__(self, model_name_or_path, config, pooling_mode: PoolingMode = PoolingMode.MEAN, config_kwargs={}, add_layer_norm: bool = True):
-        super().__init__()
+        super().__init__(config)
         self.config = config
         if not hasattr(self.config, "interpolate_pos_encoding"):
             self.config.interpolate_pos_encoding = False
