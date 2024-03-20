@@ -1050,9 +1050,9 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
         )
 
 class PIXBAForSequenceClassification(nn.Module):
-    def __init__(self, model_args, config, pooling_mode: PoolingMode = PoolingMode.MEAN):#, add_layer_norm: bool = True):
-        super().__init__(config)
-
+    def __init__(self, model_name_or_path, config, pooling_mode: PoolingMode = PoolingMode.MEAN, config_kwargs={}):#, add_layer_norm: bool = True):
+        super().__init__()
+        self.config = config
         if not hasattr(self.config, "interpolate_pos_encoding"):
             self.config.interpolate_pos_encoding = False
 
@@ -1060,8 +1060,8 @@ class PIXBAForSequenceClassification(nn.Module):
 
         self.add_cls_pooling_layer = pooling_mode == PoolingMode.CLS
         self.vit = PIXBAModel.from_pretrained(
-            model_args.model_name_or_path,
-            config)#, add_pooling_layer=self.add_cls_pooling_layer)
+            model_name_or_path,
+            config=config)#, **config_kwargs)#, add_pooling_layer=self.add_cls_pooling_layer)
 
         # Classifier head
         # self.pooler = PoolingForSequenceClassificationHead(
@@ -1073,7 +1073,7 @@ class PIXBAForSequenceClassification(nn.Module):
         self.classifier = nn.Linear(config.hidden_size, config.num_labels) if config.num_labels > 0 else nn.Identity()
 
         # Initialize weights and apply final processing
-        self.post_init()
+        #self.post_init()
 
     def forward(
         self,
@@ -1094,9 +1094,9 @@ class PIXBAForSequenceClassification(nn.Module):
 
         outputs = self.vit(
             pixel_values,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
+            #output_attentions=output_attentions,
+            #output_hidden_states=output_hidden_states,
+            #interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
             return_dict=return_dict,
         )
 

@@ -303,12 +303,13 @@ def get_model_and_config(model_args: argparse.Namespace, num_labels: int, task_n
     logger.info(f"Using dropout with probability {model_args.dropout_prob}")
 
     if config.model_type in ["vit_mae", "pixel"]:
+        print(config_kwargs)
         model = PIXBAForSequenceClassification(
             model_args.model_name_or_path,
             config=config,
             pooling_mode=model_args.pooling_mode,
             #add_layer_norm=model_args.pooler_add_layer_norm,
-            **config_kwargs,
+            config_kwargs=config_kwargs,
         )
     else:
         raise ValueError(f"Model type {config.model_type} not supported.")
