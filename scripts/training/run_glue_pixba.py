@@ -326,14 +326,14 @@ def get_collator(
 ):
     def image_collate_fn(examples):
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
-        attention_mask = torch.stack([example["attention_mask"] for example in examples])
+        #attention_mask = torch.stack([example["attention_mask"] for example in examples])
         if "label" in examples[0]:
             if is_regression:
                 labels = torch.FloatTensor([example["label"] for example in examples])
             else:
                 labels = torch.LongTensor([example["label"] for example in examples])
-            return {"pixel_values": pixel_values, "attention_mask": attention_mask, "labels": labels}
-        return {"pixel_values": pixel_values, "attention_mask": attention_mask}
+            return {"pixel_values": pixel_values, "labels": labels} #"attention_mask": attention_mask}
+        return {"pixel_values": pixel_values}#, "attention_mask": attention_mask}
 
     if modality == Modality.IMAGE:
         collator = image_collate_fn
