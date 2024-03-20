@@ -44,7 +44,7 @@ from utils.transforms import get_transforms
 from utils import glue_strip_spaces, log_sequence_classification_predictions, resize_model_embeddings
 from pixba.modelling_pixba import PIXBAForSequenceClassification
 from pixba.trainer import PIXBATrainer
-from pygame_renderer import PyGameTextRenderer
+from data.rendering import PyGameTextRenderer
 
 from transformers import (
     AutoTokenizer,
