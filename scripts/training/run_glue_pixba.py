@@ -560,7 +560,13 @@ def main():
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
+        #-------------------------------------------
+        shuffled_dataset = raw_datasets["train"].shuffle(seed=42)
+        split_index=int(0.9*len(shuffled_dataset))
+        train_dataset = shuffled_dataset.select(range(split_index))
+        validation_set = shuffled_dataset.select(range(split_index,len(shuffled_dataset)))
+        #-------------------------------------------
+        #train_dataset = raw_datasets["train"]
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
         if modality == Modality.IMAGE:
@@ -570,7 +576,8 @@ def main():
     if training_args.do_eval:
         if "validation" not in raw_datasets and "validation_matched" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
+        eval_dataset = validation_set
+        # eval_dataset = raw_datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
         if modality == Modality.IMAGE:
@@ -581,7 +588,8 @@ def main():
     if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
         if "test" not in raw_datasets and "test_matched" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
+        predict_dataset = raw_datasets["validation_matched" if data_args.task_name=="mnli" else "validation"]
+        #predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
         if modality == Modality.IMAGE:
