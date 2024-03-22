@@ -743,7 +743,7 @@ class PIXBADecoder(nn.Module):
             PIXBABlockWrapper(
                 dim=config.d_model_decoder,
                 mixer_cls=lambda dim: PIXBABlock(
-                    d_model=config.d_model,
+                    d_model=dim,
                     d_state=config.d_state,
                     d_conv=config.d_conv,
                     expand=config.expand,
