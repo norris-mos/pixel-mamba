@@ -1,5 +1,5 @@
 """
-PyTorch PIXEL models
+PyTorch PIXBA models
 """
 
 import collections
@@ -7,7 +7,7 @@ import logging
 import math
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 from einops import rearrange, repeat
 from functools import partial
 
@@ -20,21 +20,10 @@ from utils.misc import get_2d_sincos_pos_embed
 from torch import Tensor, nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from transformers import ViTForImageClassification, PreTrainedModel
-from transformers.activations import ACT2FN
+from transformers import PreTrainedModel
 from transformers.file_utils import ModelOutput
-from transformers.modeling_outputs import (
-    BaseModelOutput,
-    QuestionAnsweringModelOutput,
-    SequenceClassifierOutput,
-    TokenClassifierOutput,
-)
-from transformers.modeling_utils import find_pruneable_heads_and_indices, prune_linear_layer
+from transformers.modeling_outputs import SequenceClassifierOutput
 
-# from pixel.utils import DependencyParsingModelOutput, format_mask
-
-# from biaffine import Biaffine
-#from pooling import PoolingForSequenceClassificationHead, PoolingMode
 from pooling import PoolingForSequenceClassificationHead, PoolingMode
 # from vit import ViTModel
 from .configuration_pixba import PIXBAConfig
@@ -61,24 +50,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-#EMBEDDING CLASSES  
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
-##########################################################################################################################################
 
 def to_2tuple(x):
     if isinstance(x, collections.abc.Iterable):
         return x
     return x, x
-
-
-
 
 
 def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
@@ -145,6 +121,16 @@ def _mamba_init_weights(
                 with torch.no_grad():
                     p /= math.sqrt(n_residuals_per_layer * n_layer)
 
+#EMBEDDING CLASSES  
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
+##########################################################################################################################################
 
 class PIXBAPatchEmbeddings(nn.Module):
     """
@@ -223,17 +209,6 @@ class PIXBAEmbeddings(nn.Module):
 
         noise = torch.rand(batch_size, seq_length, device=sequence.device)  # noise in [0, 1]
 
-        # Attention mask indicates patches containing actual text
-        # Out of the patches containing actual text we take the one with the highest noise
-        # And bump up noise to 100 to guarantee that it gets masked
-        # We therefore ensure that at least one masked patch has actual text
-        # This is necessary because we only compute loss on patches having text, i.e. loss would otherwise be NaN
-        #print(noise.shape)
-        
-        # Harsh - since we are not using masking I don't think we need to increase the noise.
-        # noise_mask = torch.argmax(noise * attention_mask, dim=1)
-        # noise[torch.arange(noise.size(0)), noise_mask] = 100.0
-
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
         ids_restore = torch.argsort(ids_shuffle, dim=1)
@@ -284,37 +259,27 @@ class PIXBAEmbeddings(nn.Module):
     def forward(
             self,
             pixel_values,
-            # attention_mask=None,
             patch_mask=None
             ):
-        batch_size, num_channels, height, width = pixel_values.shape
-        #print(f'pixel dimensions before embedding:{pixel_values.shape}')
         embeddings = self.patch_embeddings(pixel_values)
-        #print(f'pixel dimensions after embedding:{embeddings.shape}')
 
         # add position embeddings w/o cls token
         embeddings = embeddings + self.position_embeddings[:, 1:, :]
 
         # masking: length -> length * config.mask_ratio
         if patch_mask is not None:
-            #embeddings, attention_mask, mask, ids_restore = self.controlled_masking(
             embeddings, mask, ids_restore = self.controlled_masking(
                 embeddings,
-                # attention_mask,
                 patch_mask
             )
         else:
-            embeddings, mask, ids_restore = self.random_masking(embeddings) #, attention_mask)
-            #embeddings, attention_mask, mask, ids_restore = self.random_masking(embeddings, attention_mask)
-        #print("Embeddings after masking - ", embeddings.shape)
+            embeddings, mask, ids_restore = self.random_masking(embeddings)
+
         # append cls token
         cls_token = self.cls_token + self.position_embeddings[:, :1, :]
         cls_tokens = cls_token.expand(embeddings.shape[0], -1, -1)
         embeddings = torch.cat((cls_tokens, embeddings), dim=1)
-        #attention_mask = torch.cat((torch.ones((batch_size, 1), device=attention_mask.device), attention_mask), dim=1)
 
-        #return embeddings, attention_mask, mask, ids_restore
-        #print("PIXELEmbeddings return embeddings of dimension - ", embeddings.shape)
         return embeddings, mask, ids_restore # embeddings - (B, 529, 768)
 
 
@@ -326,29 +291,9 @@ class PIXBAEmbeddings(nn.Module):
 ##########################################################################################################################################
 ##########################################################################################################################################
 ##########################################################################################################################################
-##########################################################################################################################################
-
-# class PIXBABlock(nn.Module):
-
-#     def __init__(self,config, d_state=16, d_conv=4, expand=2):
-#         super(PIXBABlock,self).__init__()
-
-#         self.d_model = config.d_model
-#         self.mamba = Mamba(
-#                 self.d_model,
-#                 d_state=d_state,
-#                 d_conv=d_conv,
-#                 expand=expand,
-
-#                 )
-    
-#     def forward(self,x):
-
-#         y = self.mamba(x)
-
-#         return y
     
 
+# [Ref: https://github.com/state-spaces/mamba]
 class PIXBABlock(nn.Module):
     def __init__(
         self,
@@ -442,7 +387,6 @@ class PIXBABlock(nn.Module):
         hidden_states: (B, L, D)
         Returns: same shape as hidden_states
         """
-        #print("executing forward")
         batch, seqlen, dim = hidden_states.shape
 
         conv_state, ssm_state = None, None
@@ -465,7 +409,6 @@ class PIXBABlock(nn.Module):
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
         if self.use_fast_path and inference_params is None:  # Doesn't support outputting the states
-            #print("using fast path")
             out = mamba_inner_fn(
                 xz,
                 self.conv1d.weight,
@@ -509,7 +452,6 @@ class PIXBABlock(nn.Module):
             B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             assert self.activation in ["silu", "swish"]
-            #print("executing selective_scan")
             y = selective_scan_fn(
                 x,
                 dt,
@@ -835,8 +777,6 @@ class PIXELPreTrainedModel(PreTrainedModel):
         if isinstance(module, PIXBAEncoder):
             module.gradient_checkpointing = value
 
-
-#TODO FIX MODEL to corresopond to Enocoder & Decoder
 class PIXBAModel(PIXELPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
@@ -848,22 +788,14 @@ class PIXBAModel(PIXELPreTrainedModel):
     def forward(
         self,
         pixel_values = None,
-        # attention_mask = None,
-        head_mask = None,
         patch_mask = None,
-        #output_attentions = None,
-        #output_hidden_states = None,
         return_dict = None
     ):
         embedding_output, mask, ids_restore = self.embeddings(pixel_values, patch_mask)
         encoder_outputs = self.encoder(
             embedding_output,
-            #output_hidden_states = output_hidden_states,
-            #return_dict = return_dict,
         )
-        #print("Encoder return output of dimension - ", encoder_outputs.shape)
         sequence_output = encoder_outputs
-        #sequence_output = self.layernorm(sequence_output)
 
         if not return_dict:
             return (sequence_output, mask, ids_restore) + encoder_outputs[1:]
@@ -906,16 +838,13 @@ class PIXBAForPreTrainingOutput(ModelOutput):
     loss: Optional[torch.FloatTensor] = None
     logits: torch.FloatTensor = None
     mask: torch.LongTensor = None
-    # attention_mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
     embedding_output: torch.FloatTensor = None
-    # hidden_states: Optional[Tuple[torch.FloatTensor]] = None
-    #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 @dataclass
 class PIXBAModelOutput(ModelOutput):
     """
-    Class for PIXELModel's outputs, with potential hidden states and attentions.
+    Class for PIXBAModel's outputs, with potential hidden states and attentions.
 
     Args:
         last_hidden_state (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`):
@@ -940,7 +869,6 @@ class PIXBAModelOutput(ModelOutput):
     mask: torch.LongTensor = None
     ids_restore: torch.LongTensor = None
     embedding_output: torch.FloatTensor = None
-    #attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 class PIXBAForPreTraining(PIXELPreTrainedModel):
     def __init__(self, config):
@@ -948,10 +876,8 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
         self.config = config
 
         self.vit = PIXBAModel(config)
-        self.decoder = PIXBADecoder(config)#, num_patches=self.vit.embeddings.num_patches)
+        self.decoder = PIXBADecoder(config)
 
-        # Initialize weights and apply final processing
-        # self.post_init()
 
     def get_input_embeddings(self):
         return self.vit.embeddings.patch_embeddings
@@ -1003,22 +929,14 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
     def forward(
         self,
         pixel_values=None,
-        # attention_mask=None,
-        head_mask=None,
         patch_mask=None,
-        output_attentions=None,
-        output_hidden_states=None,
         return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         outputs = self.vit(
             pixel_values,
-            # attention_mask=attention_mask,
-            head_mask=head_mask,
             patch_mask=patch_mask,
-            #output_attentions=output_attentions,
-            #output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
 
@@ -1027,11 +945,9 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
         mask = outputs.mask
         embedding_output = outputs.embedding_output
 
-        decoder_outputs = self.decoder(latent, ids_restore)#, attention_mask)  # [N, L, p*p*3]
-        logits = decoder_outputs #decoder_outputs.logits
+        decoder_outputs = self.decoder(latent, ids_restore)
+        logits = decoder_outputs
 
-        #merged_mask = torch.bitwise_and(mask == 1, attention_mask == 1).long()
-        #loss = self.forward_loss(pixel_values, logits, merged_mask)
         loss = self.forward_loss(pixel_values, logits, mask)
 
         if not return_dict:
@@ -1042,11 +958,8 @@ class PIXBAForPreTraining(PIXELPreTrainedModel):
             loss=loss,
             logits=logits,
             mask=mask,
-            #attention_mask=attention_mask,
             ids_restore=ids_restore,
             embedding_output=embedding_output,
-            #hidden_states=outputs.hidden_states,
-            #attentions=outputs.attentions,
         )
 
 class PIXBAForSequenceClassification(PIXELPreTrainedModel):
@@ -1061,7 +974,7 @@ class PIXBAForSequenceClassification(PIXELPreTrainedModel):
         self.add_cls_pooling_layer = pooling_mode == PoolingMode.CLS
         self.vit = PIXBAModel.from_pretrained(
             model_name_or_path,
-            config=config)#, **config_kwargs)#, add_pooling_layer=self.add_cls_pooling_layer)
+            config=config)
 
         # Classifier head
         self.pooler = PoolingForSequenceClassificationHead(
@@ -1072,16 +985,10 @@ class PIXBAForSequenceClassification(PIXELPreTrainedModel):
         )
         self.classifier = nn.Linear(config.hidden_size, config.num_labels) if config.num_labels > 0 else nn.Identity()
 
-        # Initialize weights and apply final processing
-        #self.post_init()
-
     def forward(
         self,
         pixel_values=None,
         labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        interpolate_pos_encoding=None,
         return_dict=None,
     ):
         r"""
@@ -1091,25 +998,20 @@ class PIXBAForSequenceClassification(PIXELPreTrainedModel):
             `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # print("Input size - ", pixel_values.shape)
+
         outputs = self.vit(
             pixel_values,
-            #output_attentions=output_attentions,
-            #output_hidden_states=output_hidden_states,
-            #interpolate_pos_encoding=interpolate_pos_encoding if interpolate_pos_encoding is not None else self.config.interpolate_pos_encoding,
             return_dict=return_dict,
         )
-        # print("output size - ", outputs[0].shape, outputs[1].shape)
+
         if self.add_cls_pooling_layer:
             sequence_output = outputs[1]
         else:
             # When not using CLS pooling mode, discard it
             sequence_output = outputs[0][:, 1:, :]
-        # print("sequence_output size - ", sequence_output.shape)
+
         logits = self.pooler(sequence_output)
-        # print("pooler output size - ", logits.shape)
         logits = self.classifier(logits)
-        # print("logits size - ", logits.shape)
         loss = None
         if labels is not None:
             if self.config.problem_type is None:
@@ -1128,7 +1030,6 @@ class PIXBAForSequenceClassification(PIXELPreTrainedModel):
                     loss = loss_fct(logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                # print(logits.view(-1, self.num_labels).shape, labels.view(-1).shape)
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
@@ -1140,7 +1041,5 @@ class PIXBAForSequenceClassification(PIXELPreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            #hidden_states=outputs.hidden_states
-            # attentions=outputs.attentions,
         )
 

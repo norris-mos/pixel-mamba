@@ -2,6 +2,3 @@
 	path = datasets
 	url = https://github.com/xplip/datasets.git
 	branch = pve
-[submodule "Edi-pixel"]
-	path = Edi-pixel
-	url = https://github.com/EDI-PIXEL/pixel.git

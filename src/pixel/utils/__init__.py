@@ -6,7 +6,6 @@ from .misc import *
 from .modeling import *
 from .optimization import *
 from .prerendering import *
-from .question_answering import *
 from .training import *
 from .transforms import *
 from .masking import *

@@ -91,7 +91,7 @@ class PIXBAConfig(PretrainedConfig):
         d_model = 768,
         num_encoder_layers = 4,
         num_decoder_layers=2,
-        d_model_decoder = 512,
+        d_model_decoder = 768,
         vocab_size=50277,
         ssm_cfg = {},#field(default_factory=dict),
         rms_norm=True,
